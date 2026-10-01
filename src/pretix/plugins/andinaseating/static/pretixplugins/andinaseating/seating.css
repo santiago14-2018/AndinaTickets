@@ -93,3 +93,36 @@
     border-color: #ccc;
     background: #e6e6e6;
 }
+
+/* Plano para el comprador (seatmap-canvas). Sin JavaScript se ve solo la lista. */
+.andinaseating-shop-map,
+.andinaseating-map-help {
+    display: none;
+}
+.andinaseating-has-map .andinaseating-shop-map {
+    display: block;
+    position: relative;
+    height: 420px;
+    margin-bottom: 6px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #f7f7f7;
+    overflow: hidden;
+}
+.andinaseating-has-map .andinaseating-map-help {
+    display: block;
+}
+@media (max-width: 767px) {
+    .andinaseating-has-map .andinaseating-shop-map {
+        height: 320px;
+    }
+}
+/* seatmap-canvas tapa las butacas hasta acercar el plano al máximo; acá se eligen a cualquier zoom. */
+.andinaseating-shop-map .masks {
+    display: none;
+}
+.andinaseating-list > summary {
+    cursor: pointer;
+    margin: 8px 0;
+    font-weight: bold;
+}

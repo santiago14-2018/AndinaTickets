@@ -18,7 +18,8 @@ cómo traer actualizaciones de pretix sin perder nuestro trabajo.
 
 | Pantalla | Dónde | Para qué |
 |---|---|---|
-| Salas | Organizador → Salas | Crear salas y subir sectores (JSON o CSV), con vista previa del plano |
+| Salas | Organizador → Salas | Crear salas; generar sectores por parámetros (filas, butacas, pasillo, curva, filas alternadas) con vista previa en vivo, o subirlos como JSON o CSV |
+| Tienda | Página del evento | Plano para elegir butacas (seatmap-canvas), sincronizado con la lista de butacas, que queda como alternativa accesible |
 | Plan de butacas | Evento → Plan de butacas | Elegir sala (por fecha en una serie) y conectar categorías con productos y cupos |
 | Boletería | Evento → Boletería | Reservar butacas para venta presencial y cargar boletos impresos (CSV `codigo;fila;butaca`) |
 

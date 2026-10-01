@@ -8,10 +8,13 @@ from django.templatetags.static import static
 from django.urls import resolve, reverse
 from django.utils.html import format_html
 
+from pretix.base.templatetags.money import money_filter
 from pretix.control.signals import nav_event, nav_organizer
 from pretix.presale.signals import (
     html_head, render_seating_plan, seatingframe_html_head,
 )
+
+from .seatmap import event_seats, seat_name, seats_to_blocks
 
 PRODUCT_COLORS = 6  # number of .andinaseating-cN color classes in seating.css
 
@@ -21,16 +24,20 @@ def _css_link(filename):
                        static('pretixplugins/andinaseating/' + filename))
 
 
+def _shop_css():
+    return _css_link('vendor/seatmap-canvas/seatmap.canvas.css') + _css_link('seating.css')
+
+
 @receiver(html_head, dispatch_uid="andinaseating_html_head")
 def andinaseating_html_head(sender, request=None, **kwargs):
     if sender.seating_plan_id or sender.has_subevents:
-        return _css_link('seating.css')
+        return _shop_css()
     return ""
 
 
 @receiver(seatingframe_html_head, dispatch_uid="andinaseating_seatingframe_html_head")
 def andinaseating_seatingframe_html_head(sender, request=None, **kwargs):
-    return _css_link('seating.css')
+    return _shop_css()
 
 
 @receiver(nav_organizer, dispatch_uid="andinaseating_nav_organizer")
@@ -95,7 +102,10 @@ def andinaseating_render(sender, request, subevent=None, voucher=None, add_to_ca
     products = {}
     rows = []
     row_by_key = {}
-    for seat in ev.seats.select_related('product').order_by('sorting_rank', 'seat_guid'):
+    map_state = {}  # datos de cada butaca para el plano (seatmap-canvas)
+    seats = event_seats(ev.seats.select_related('product'))
+    for s in seats:
+        seat = s.obj
         key = (seat.zone_name, seat.row_name)
         if key not in row_by_key:
             row_by_key[key] = {'zone': seat.zone_name, 'label': seat.row_label or seat.row_name, 'seats': []}
@@ -112,13 +122,25 @@ def andinaseating_render(sender, request, subevent=None, voucher=None, add_to_ca
             }
         if free:
             products[item.pk]['free'] += 1
+        field = 'seat_{}'.format(item.pk) if item else ''
         row_by_key[key]['seats'].append({
             'seat': seat,
             'number': seat.seat_number,
             'free': free,
-            'field': 'seat_{}'.format(item.pk) if item else '',
+            'field': field,
             'product': products.get(item.pk) if item else None,
         })
+        sellable_now = free and ev.presale_is_running
+        if sellable_now:
+            detail = '{} – {}'.format(item.name, money_filter(products[item.pk]['price'], sender.currency))
+        else:
+            detail = 'No disponible'
+        map_state[seat.pk] = {
+            'salable': sellable_now,
+            # Cartel al pasar el mouse: un renglón por cada salto de línea.
+            'title': seat_name(s) + '\n' + detail,
+            'custom_data': {'row': s.row_label or s.row, 'zone': s.zone or '', 'field': field},
+        }
 
     # Show the zone name only when it changes, so multi-sector plans read as sections.
     last_zone = None
@@ -130,6 +152,7 @@ def andinaseating_render(sender, request, subevent=None, voucher=None, add_to_ca
     return get_template('pretixplugins/andinaseating/selector.html').render({
         'event': sender,
         'rows': rows,
+        'blocks': seats_to_blocks(seats, state=lambda s: map_state[s.obj.pk]),
         'products': list(products.values()),
         'free_count': free_count,
         'presale_is_running': ev.presale_is_running,

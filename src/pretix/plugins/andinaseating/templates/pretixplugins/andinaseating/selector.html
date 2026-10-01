@@ -1,5 +1,6 @@
 {% load i18n %}
 {% load money %}
+{% load static %}
 <section class="andinaseating panel panel-default" aria-labelledby="andinaseating-title">
     <div class="panel-heading">
         <h3 class="panel-title" id="andinaseating-title">{% trans "Seating plan" %}</h3>
@@ -15,6 +16,13 @@
             {% endfor %}
             <li><span class="andinaseating-swatch andinaseating-swatch-taken"></span> {% trans "Unavailable" %}</li>
         </ul>
+        <div id="andinaseating-map" class="andina-seatmap andinaseating-shop-map" data-source="andinaseating-blocks"
+             data-mode="shop" aria-hidden="true"></div>
+        <p class="andinaseating-map-help text-muted small">
+            Tocá una butaca para elegirla; tocá de nuevo para quitarla. Con dos dedos o la rueda del mouse podés acercar.
+        </p>
+        <details class="andinaseating-list" open>
+        <summary>Ver las butacas como lista</summary>
         <div class="andinaseating-grid">
             {% for row in rows %}
                 {% if row.zone_header %}
@@ -42,7 +50,11 @@
                 </div>
             {% endfor %}
         </div>
+        </details>
     </div>
+    {{ blocks|json_script:"andinaseating-blocks" }}
+    <script src="{% static "pretixplugins/andinaseating/vendor/seatmap-canvas/seatmap.canvas.min.js" %}"></script>
+    <script src="{% static "pretixplugins/andinaseating/seatmap-andina.js" %}"></script>
     {% if show_submit %}
         <div class="panel-footer text-right">
             <button type="submit" class="btn btn-primary btn-lg">
