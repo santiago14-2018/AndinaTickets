@@ -1,0 +1,121 @@
+# AndinaTickets — fork de Pretix adaptado para Argentina (MercadoPago en vez
+# de Stripe). Entorno de desarrollo local. Puerto principal 8124 y Mailpit en
+# 8026 para no chocar con hi.events, que corre en 8123.
+name: andina-tickets
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: andina_tickets
+      POSTGRES_USER: andina
+      POSTGRES_PASSWORD: andina
+    volumes:
+      - andina_dev_postgres:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:15432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U andina"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - andina_dev_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "8026:8025"   # UI web de Mailpit (http://localhost:8026)
+    volumes:
+      - andina_dev_mailpit:/data
+    environment:
+      MP_MAX_MESSAGES: "5000"
+      MP_DATABASE: /data/mailpit.db
+
+  web:
+    build:
+      context: ../..
+      dockerfile: deployment/docker/Dockerfile.dev
+    command: ["runserver"]
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    environment:
+      PRETIX_DATABASE_BACKEND: postgresql
+      PRETIX_DATABASE_NAME: andina_tickets
+      PRETIX_DATABASE_USER: andina
+      PRETIX_DATABASE_PASSWORD: andina
+      PRETIX_DATABASE_HOST: db
+      PRETIX_DATABASE_PORT: "5432"
+      PRETIX_REDIS_LOCATION: redis://redis:6379/1
+      PRETIX_MAIL_HOST: mailpit
+      PRETIX_MAIL_PORT: "1025"
+      # Idioma y zona horaria por defecto (sección [locale] de pretix.cfg)
+      PRETIX_LOCALE_DEFAULT: es
+      PRETIX_LOCALE_TIMEZONE: America/Argentina/Buenos_Aires
+      DATA_DIR: /data
+    volumes:
+      - ../../src:/pretix/src
+      - andina_dev_data:/data
+    ports:
+      - "8130:8000"
+      - "5173:5173"   # dev server de Vite para el panel de control (levantado automáticamente por runserver)
+    stdin_open: true
+    tty: true
+
+  # Worker de Celery, opcional. La documentación de desarrollo de pretix
+  # recomienda NO usar Celery en local (los cambios de código no recargan
+  # en el worker). Levantalo solo si lo necesitás:
+  #   docker compose -f docker-compose.dev.yml --profile celery up worker
+  worker:
+    build:
+      context: ../..
+      dockerfile: deployment/docker/Dockerfile.dev
+    command: ["celery"]
+    restart: unless-stopped
+    profiles: ["celery"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PRETIX_DATABASE_BACKEND: postgresql
+      PRETIX_DATABASE_NAME: andina_tickets
+      PRETIX_DATABASE_USER: andina
+      PRETIX_DATABASE_PASSWORD: andina
+      PRETIX_DATABASE_HOST: db
+      PRETIX_DATABASE_PORT: "5432"
+      PRETIX_REDIS_LOCATION: redis://redis:6379/1
+      PRETIX_CELERY_BROKER: redis://redis:6379/2
+      PRETIX_CELERY_BACKEND: redis://redis:6379/2
+      PRETIX_MAIL_HOST: mailpit
+      PRETIX_MAIL_PORT: "1025"
+      PRETIX_LOCALE_DEFAULT: es
+      PRETIX_LOCALE_TIMEZONE: America/Argentina/Buenos_Aires
+      DATA_DIR: /data
+    volumes:
+      - ../../src:/pretix/src
+      - andina_dev_data:/data
+
+volumes:
+  andina_dev_postgres:
+  andina_dev_redis:
+  andina_dev_mailpit:
+  andina_dev_data:

@@ -1,0 +1,60 @@
+# Imagen de desarrollo para pretix. A diferencia del Dockerfile de producción
+# (raíz del repo), esta imagen no compila assets ni corre bajo nginx/gunicorn:
+# deja el código fuente para montarlo como volumen y sirve con el runserver
+# de Django, que además levanta automáticamente el dev server de Vite para
+# los componentes Vue del panel de control.
+FROM python:3.13-trixie
+
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+            build-essential \
+            gettext \
+            git \
+            libenchant-2-2 \
+            libffi-dev \
+            libjpeg-dev \
+            libmemcached-dev \
+            libpq-dev \
+            libssl-dev \
+            libxml2-dev \
+            libxslt1-dev \
+            locales \
+            python3-dev \
+            libmaxminddb0 \
+            libmaxminddb-dev \
+            zlib1g-dev \
+            nodejs && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    dpkg-reconfigure locales && \
+    locale-gen C.UTF-8 && \
+    /usr/sbin/update-locale LANG=C.UTF-8
+
+ENV LC_ALL=C.UTF-8 \
+    DJANGO_SETTINGS_MODULE=pretix.settings \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /pretix
+
+COPY pyproject.toml /pretix/pyproject.toml
+# pyproject.toml usa un build backend propio (_build/backend.py); sin él pip
+# falla con "Cannot find module 'backend'".
+COPY _build /pretix/_build
+COPY package.json /pretix/package.json
+COPY package-lock.json /pretix/package-lock.json
+COPY tsconfig.json /pretix/tsconfig.json
+COPY vite.config.ts /pretix/vite.config.ts
+COPY src /pretix/src
+
+RUN pip3 install -U pip setuptools && \
+    PRETIX_DOCKER_BUILD=TRUE pip3 install -e ".[dev,memcached]"
+
+RUN npm ci
+
+COPY deployment/docker/dev-entrypoint.sh /usr/local/bin/dev-entrypoint.sh
+RUN chmod +x /usr/local/bin/dev-entrypoint.sh
+
+EXPOSE 8000
+ENTRYPOINT ["dev-entrypoint.sh"]
+CMD ["runserver"]
