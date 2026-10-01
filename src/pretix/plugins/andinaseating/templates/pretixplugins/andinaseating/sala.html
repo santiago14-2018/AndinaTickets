@@ -3,6 +3,7 @@
 {% load static %}
 {% block custom_header %}
     {{ block.super }}
+    <link rel="stylesheet" type="text/css" href="{% static "pretixplugins/andinaseating/vendor/seatmap-canvas/seatmap.canvas.css" %}">
     <link rel="stylesheet" type="text/css" href="{% static "pretixplugins/andinaseating/control.css" %}">
 {% endblock %}
 {% block title %}{{ plan.name }}{% endblock %}
@@ -16,6 +17,19 @@
             {% for e in events %}<strong>{{ e }}</strong>{% if not forloop.last %}, {% endif %}{% endfor %}.
             Los cambios se aplican a esos eventos al guardar. No se pueden quitar butacas que ya estén vendidas.
         </div>
+    {% endif %}
+
+    {% if blocks %}
+        <div class="panel panel-default">
+            <div class="panel-heading"><h3 class="panel-title">Vista previa</h3></div>
+            <div class="panel-body">
+                <div id="sala-map" class="andina-seatmap" data-source="sala-blocks" data-mode="preview"></div>
+                <p class="text-muted small">Hacé clic en un sector o usá la rueda del mouse para acercar.</p>
+            </div>
+        </div>
+        {{ blocks|json_script:"sala-blocks" }}
+        <script src="{% static "pretixplugins/andinaseating/vendor/seatmap-canvas/seatmap.canvas.min.js" %}"></script>
+        <script src="{% static "pretixplugins/andinaseating/seatmap-andina.js" %}"></script>
     {% endif %}
 
     <div class="panel panel-default">

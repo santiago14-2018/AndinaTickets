@@ -13,3 +13,39 @@
 .andinaseating-confirm form {
     display: inline-block;
 }
+
+/* Planos dibujados con seatmap-canvas */
+.andina-seatmap {
+    position: relative;
+    height: 460px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #f7f7f7;
+    overflow: hidden;
+}
+.andinaseating-map-legend {
+    margin-bottom: 6px;
+}
+.andinaseating-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid #999;
+    vertical-align: middle;
+}
+.andinaseating-dot-free { background: #ffffff; }
+.andinaseating-dot-reserved { background: #e69f00; border-color: #b37a00; }
+.andinaseating-dot-taken { background: #9e9e9e; }
+.andinaseating-rows {
+    margin-top: 10px;
+    line-height: 2.2;
+}
+.andinaseating-date-form {
+    margin-bottom: 15px;
+}
+/* seatmap-canvas tapa las butacas con "máscaras" hasta acercar el plano al máximo.
+   Para reservar butacas de boletería las queremos clickeables siempre. */
+.andina-seatmap[data-mode="select"] .masks {
+    display: none;
+}

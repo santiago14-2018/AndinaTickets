@@ -24,6 +24,7 @@ from .layout import (
     add_sector, empty_layout, parse_sector_file, remove_sector,
     sectors_summary,
 )
+from .seatmap import plan_seats, seats_to_blocks
 
 
 def _error_text(e):
@@ -115,6 +116,7 @@ class SalaDetailView(SalaMixin, TemplateView):
         ctx['total_seats'] = sum(s['seats'] for s in ctx['sectors'])
         ctx['events'] = list(plan.events.all()) + [se for se in plan.subevents.select_related('event')]
         ctx['form'] = kwargs.get('form') or SectorUploadForm()
+        ctx['blocks'] = seats_to_blocks(plan_seats(plan)) if ctx['total_seats'] else []
         return ctx
 
     def post(self, request, *args, **kwargs):

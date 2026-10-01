@@ -1,0 +1,3 @@
+seatmap-canvas 2.7.6 (commit 2d5ca47), MIT License.
+Compilado con "npm run build" desde https://github.com/alisaitteke/seatmap-canvas
+Archivos: dist/cjs/seatmap.canvas.js (IIFE, expone window.SeatMapCanvas) y dist/seatmap.canvas.css.
