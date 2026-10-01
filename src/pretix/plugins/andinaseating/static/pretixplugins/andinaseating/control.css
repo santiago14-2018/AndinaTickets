@@ -44,8 +44,8 @@
 .andinaseating-date-form {
     margin-bottom: 15px;
 }
-/* seatmap-canvas tapa las butacas con "máscaras" hasta acercar el plano al máximo.
-   Para reservar butacas de boletería las queremos clickeables siempre. */
-.andina-seatmap[data-mode="select"] .masks {
+/* seatmap-canvas tapa las butacas con "máscaras" (se ven pálidas) hasta acercar el plano al
+   máximo. Las sacamos siempre: en la vista previa se ve mejor y en boletería son clickeables. */
+.andina-seatmap .masks {
     display: none;
 }

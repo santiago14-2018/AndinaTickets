@@ -6,7 +6,7 @@
     <h1>{{ report.event.name }} <small>{{ report.event.get_date_range_display }}</small></h1>
 
     {% if subevents %}
-        <form method="get" class="form-inline" style="margin-bottom: 15px">
+        <form method="get" class="form-inline">
             <label for="fecha-select">Función</label>
             <select name="fecha" id="fecha-select" class="form-control">
                 <option value="">Todas las funciones</option>
@@ -23,13 +23,13 @@
             <div class="h2">{{ report.tickets }}</div>entradas vendidas
         </div></div></div>
         <div class="col-sm-3 col-xs-6"><div class="panel panel-default"><div class="panel-body text-center">
-            <div class="h3">{{ report.gross|money:report.currency }}</div>recaudación
+            <div class="h4 text-nowrap">{{ report.gross|money:report.currency }}</div>recaudación
         </div></div></div>
         <div class="col-sm-3 col-xs-6"><div class="panel panel-default"><div class="panel-body text-center">
-            <div class="h3">− {{ report.commission|money:report.currency }}</div>comisión ({{ report.commission_pct }} %)
+            <div class="h4 text-nowrap">− {{ report.commission|money:report.currency }}</div>comisión ({{ report.commission_pct }} %)
         </div></div></div>
         <div class="col-sm-3 col-xs-6"><div class="panel panel-success"><div class="panel-body text-center">
-            <div class="h3"><strong>{{ report.net|money:report.currency }}</strong></div>neto para vos
+            <div class="h4 text-nowrap"><strong>{{ report.net|money:report.currency }}</strong></div>neto para vos
         </div></div></div>
     </div>
 
