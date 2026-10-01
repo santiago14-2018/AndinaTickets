@@ -1,0 +1,56 @@
+{% extends "pretixcontrol/organizers/base.html" %}
+{% load bootstrap3 %}
+{% load static %}
+{% block custom_header %}
+    {{ block.super }}
+    <link rel="stylesheet" type="text/css" href="{% static "pretixplugins/andinaseating/control.css" %}">
+{% endblock %}
+{% block title %}Salas{% endblock %}
+{% block inner %}
+    <h1>Salas</h1>
+    <p>
+        Cada sala es un plano de butacas formado por uno o más sectores (Platea, VIP, 1er piso…).
+        Cada sector se sube como un archivo JSON o CSV. Después, en cada evento, elegís la sala y
+        conectás sus categorías con los productos y cupos.
+    </p>
+
+    {% if salas %}
+        <div class="table-responsive">
+            <table class="table table-condensed table-hover">
+                <thead>
+                <tr>
+                    <th>Sala</th>
+                    <th class="text-right">Sectores</th>
+                    <th class="text-right">Butacas</th>
+                    <th>En uso</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for s in salas %}
+                    <tr>
+                        <td>
+                            <strong><a href="{% url "plugins:andinaseating:sala" organizer=request.organizer.slug sala=s.plan.pk %}">{{ s.plan.name }}</a></strong>
+                        </td>
+                        <td class="text-right">{{ s.sectors }}</td>
+                        <td class="text-right">{{ s.seats }}</td>
+                        <td>{% if s.in_use %}<span class="label label-success">{{ s.in_use }} evento{{ s.in_use|pluralize }}</span>{% else %}<span class="text-muted">No</span>{% endif %}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="text-muted"><em>Todavía no hay salas.</em></p>
+    {% endif %}
+
+    <form method="post" class="panel panel-default">
+        {% csrf_token %}
+        <div class="panel-heading"><h3 class="panel-title">Crear una sala nueva</h3></div>
+        <div class="panel-body">
+            {% bootstrap_form form layout="horizontal" %}
+        </div>
+        <div class="panel-footer text-right">
+            <button type="submit" class="btn btn-primary"><span class="fa fa-plus"></span> Crear sala</button>
+        </div>
+    </form>
+{% endblock %}

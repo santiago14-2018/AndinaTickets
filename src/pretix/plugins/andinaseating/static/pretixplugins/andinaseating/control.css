@@ -1,0 +1,15 @@
+.andinaseating-confirm {
+    display: inline-block;
+}
+.andinaseating-confirm summary {
+    list-style: none;
+}
+.andinaseating-confirm summary::-webkit-details-marker {
+    display: none;
+}
+.andinaseating-confirm[open] summary {
+    display: none;
+}
+.andinaseating-confirm form {
+    display: inline-block;
+}

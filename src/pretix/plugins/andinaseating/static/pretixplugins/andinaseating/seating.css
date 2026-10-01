@@ -1,0 +1,95 @@
+/* One color per product (.andinaseating-c0 … c5), set as --seat-color. */
+.andinaseating-c0 { --seat-color: #5b2a73; }
+.andinaseating-c1 { --seat-color: #0065a0; }
+.andinaseating-c2 { --seat-color: #b34700; }
+.andinaseating-c3 { --seat-color: #00795a; }
+.andinaseating-c4 { --seat-color: #a3417e; }
+.andinaseating-c5 { --seat-color: #6f5b00; }
+
+.andinaseating-grid {
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+.andinaseating-zone {
+    margin: 14px 0 6px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #666;
+}
+.andinaseating-zone:first-child {
+    margin-top: 0;
+}
+.andinaseating-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+}
+.andinaseating-row-label {
+    flex: 0 0 5em;
+    font-weight: bold;
+    white-space: nowrap;
+}
+.andinaseating-seats {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 6px;
+}
+.andinaseating-seat {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.4em;
+    height: 2.4em;
+    margin: 0;
+    border: 2px solid var(--seat-color, #5b2a73);
+    border-radius: 6px 6px 3px 3px;
+    background: #fff;
+    color: var(--seat-color, #5b2a73);
+    font-weight: bold;
+    cursor: pointer;
+    user-select: none;
+}
+.andinaseating-seat input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+}
+.andinaseating-seat:hover {
+    background: #f4f4f4;
+}
+.andinaseating-seat:has(input:focus-visible) {
+    outline: 3px solid #0072b2;
+    outline-offset: 2px;
+}
+.andinaseating-seat:has(input:checked) {
+    background: var(--seat-color, #5b2a73);
+    color: #fff;
+}
+.andinaseating-seat-taken,
+.andinaseating-seat-taken:hover {
+    border-color: #ccc;
+    background: #e6e6e6;
+    color: #999;
+    cursor: not-allowed;
+}
+.andinaseating-legend {
+    margin-bottom: 12px;
+}
+.andinaseating-legend li {
+    margin-bottom: 4px;
+}
+.andinaseating-swatch {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    vertical-align: middle;
+    border: 2px solid var(--seat-color, #5b2a73);
+    border-radius: 3px;
+}
+.andinaseating-swatch-taken {
+    border-color: #ccc;
+    background: #e6e6e6;
+}

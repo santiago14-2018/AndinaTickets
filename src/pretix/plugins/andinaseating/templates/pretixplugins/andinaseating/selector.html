@@ -1,0 +1,57 @@
+{% load i18n %}
+{% load money %}
+<section class="andinaseating panel panel-default" aria-labelledby="andinaseating-title">
+    <div class="panel-heading">
+        <h3 class="panel-title" id="andinaseating-title">{% trans "Seating plan" %}</h3>
+    </div>
+    <div class="panel-body">
+        <ul class="andinaseating-legend list-unstyled">
+            {% for p in products %}
+                <li>
+                    <span class="andinaseating-swatch andinaseating-c{{ p.color }}"></span>
+                    <strong>{{ p.item.name }}</strong> – {{ p.price|money:event.currency }}
+                    <span class="text-muted">({{ p.free }} libre{{ p.free|pluralize }})</span>
+                </li>
+            {% endfor %}
+            <li><span class="andinaseating-swatch andinaseating-swatch-taken"></span> {% trans "Unavailable" %}</li>
+        </ul>
+        <div class="andinaseating-grid">
+            {% for row in rows %}
+                {% if row.zone_header %}
+                    <div class="andinaseating-zone">{{ row.zone_header }}</div>
+                {% endif %}
+                <div class="andinaseating-row">
+                    <div class="andinaseating-row-label">{{ row.label }}</div>
+                    <div class="andinaseating-seats">
+                        {% for s in row.seats %}
+                            {% if s.free and presale_is_running %}
+                                <label class="andinaseating-seat andinaseating-c{{ s.product.color }}"
+                                       title="{{ s.seat }} – {{ s.product.price|money:event.currency }}">
+                                    <input type="checkbox" name="{{ s.field }}" value="{{ s.seat.seat_guid }}"
+                                           aria-label="{{ s.seat }} – {{ s.product.price|money:event.currency }}">
+                                    <span>{{ s.number }}</span>
+                                </label>
+                            {% else %}
+                                <span class="andinaseating-seat andinaseating-seat-taken"
+                                      title="{{ s.seat }} – {% trans "Unavailable" %}" aria-hidden="true">
+                                    <span>{{ s.number }}</span>
+                                </span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% if show_submit %}
+        <div class="panel-footer text-right">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="fa fa-shopping-cart" aria-hidden="true"></i> {% trans "Add to cart" %}
+            </button>
+        </div>
+    {% elif not free_count %}
+        <div class="panel-footer text-right">
+            <strong>{% trans "Sold out" %}</strong>
+        </div>
+    {% endif %}
+</section>

@@ -1,0 +1,162 @@
+{% extends "pretixcontrol/event/base.html" %}
+{% load money %}
+{% block title %}Plan de butacas :: {{ request.event.name }}{% endblock %}
+{% block content %}
+    <h1>Plan de butacas</h1>
+    <p>
+        Elegí la sala{% if series %} para las fechas del evento{% else %} del evento{% endif %} y conectá cada
+        categoría de butaca con el producto que se vende (su precio). Si el producto no tiene cupo, se crea uno
+        del tamaño de la categoría. Los productos conectados se venden solo eligiendo butaca.
+        Las salas se arman en <a href="{{ salas_url }}">Salas</a>.
+    </p>
+
+    {% for e in errors %}
+        <div class="alert alert-danger">{{ e }}</div>
+    {% endfor %}
+
+    {% if stats and request.event.seating_plan %}
+        <div class="row">
+            <div class="col-sm-4"><div class="panel panel-default"><div class="panel-body text-center">
+                <div class="h2">{{ stats.total }}</div>butacas
+            </div></div></div>
+            <div class="col-sm-4"><div class="panel panel-default"><div class="panel-body text-center">
+                <div class="h2">{{ stats.taken }}</div>vendidas
+            </div></div></div>
+            <div class="col-sm-4"><div class="panel panel-default"><div class="panel-body text-center">
+                <div class="h2">{{ stats.free }}</div>libres
+            </div></div></div>
+        </div>
+    {% endif %}
+
+    <form method="get" class="panel panel-default">
+        <div class="panel-heading"><h3 class="panel-title">1. Sala</h3></div>
+        <div class="panel-body form-inline">
+            <label for="sala-select">Sala</label>
+            <select name="sala" id="sala-select" class="form-control">
+                <option value="" {% if not plan %}selected{% endif %}>— Sin plano de butacas —</option>
+                {% for p in plans %}
+                    <option value="{{ p.pk }}" {% if p == plan %}selected{% endif %}>{{ p.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-default">Ver categorías</button>
+            {% if plan_changed %}
+                <p class="help-block">Todavía no guardaste este cambio: revisá abajo y guardá.</p>
+            {% endif %}
+        </div>
+    </form>
+
+    <form method="post" class="panel panel-default">
+        {% csrf_token %}
+        <input type="hidden" name="sala" value="{{ plan.pk|default_if_none:"" }}">
+        <div class="panel-heading"><h3 class="panel-title">2. Categorías y productos</h3></div>
+        {% if plan %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                    <tr>
+                        <th>Categoría</th>
+                        <th class="text-right">Butacas</th>
+                        <th>Producto</th>
+                        <th>Si creás uno nuevo</th>
+                        <th>Cupo</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for c in categories %}
+                        <tr>
+                            <td>
+                                <input type="hidden" name="category_{{ forloop.counter0 }}" value="{{ c.name }}">
+                                <strong>{{ c.name }}</strong>
+                                {% if c.sectors|join:"" != c.name %}<br><small class="text-muted">{{ c.sectors|join:", " }}</small>{% endif %}
+                            </td>
+                            <td class="text-right">{{ c.seats }}</td>
+                            <td>
+                                <select name="product_{{ forloop.counter0 }}" class="form-control"
+                                        aria-label="Producto para {{ c.name }}">
+                                    <option value="{{ NEW_PRODUCT }}" {% if not c.product %}selected{% endif %}>+ Crear producto nuevo</option>
+                                    <option value="">— Sin asignar (no se vende) —</option>
+                                    {% for i in items %}
+                                        <option value="{{ i.pk }}" {% if c.product == i %}selected{% endif %}>
+                                            {{ i.name }} – {{ i.default_price|money:request.event.currency }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td>
+                                <input type="text" name="new_name_{{ forloop.counter0 }}" class="form-control input-sm"
+                                       placeholder="Nombre: {{ c.name }}" aria-label="Nombre del producto nuevo para {{ c.name }}">
+                                <input type="text" name="new_price_{{ forloop.counter0 }}" class="form-control input-sm"
+                                       placeholder="Precio, ej. 30.000" aria-label="Precio del producto nuevo para {{ c.name }}"
+                                       inputmode="decimal">
+                            </td>
+                            <td>
+                                {% if c.warning %}
+                                    <div class="text-warning"><span class="fa fa-warning"></span> {{ c.warning }}</div>
+                                {% endif %}
+                                {% if c.note %}
+                                    <div class="text-muted">{{ c.note }}</div>
+                                {% elif c.product and not c.warning %}
+                                    <span class="text-success"><span class="fa fa-check"></span> Tiene cupo</span>
+                                {% elif not c.product %}
+                                    <span class="text-muted">Producto nuevo: cupo de {{ c.seats }}{% if series %} por fecha{% endif %}.</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="5" class="text-muted"><em>Esta sala no tiene sectores todavía.</em></td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="panel-body text-muted">
+                {% if series %}Las fechas elegidas{% else %}El evento{% endif %} se van a vender sin butacas numeradas.
+            </div>
+        {% endif %}
+
+        {% if series %}
+            <div class="panel-heading"><h3 class="panel-title">3. Fechas donde se aplica</h3></div>
+            {% if dates %}
+                <div class="table-responsive">
+                    <table class="table table-condensed">
+                        <thead>
+                        <tr>
+                            <th>Aplicar</th>
+                            <th>Fecha</th>
+                            <th>Sala actual</th>
+                            <th class="text-right">Butacas</th>
+                            <th class="text-right">Vendidas</th>
+                            <th class="text-right">Libres</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for d in dates %}
+                            <tr>
+                                <td>
+                                    <input type="checkbox" name="dates" value="{{ d.se.pk }}" id="date-{{ d.se.pk }}"
+                                           {% if d.checked %}checked{% endif %}>
+                                </td>
+                                <td><label for="date-{{ d.se.pk }}">{{ d.se.name }} – {{ d.se.get_date_range_display }}</label></td>
+                                <td>{% if d.plan %}{{ d.plan.name }}{% else %}<span class="text-muted">Sin plano</span>{% endif %}</td>
+                                <td class="text-right">{{ d.total }}</td>
+                                <td class="text-right">{{ d.taken }}</td>
+                                <td class="text-right">{{ d.free }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="panel-body text-muted small">
+                    Por defecto quedan marcadas las fechas sin sala y las que ya usan esta sala. Las fechas nuevas que
+                    agregues más adelante aparecen acá: volvé a esta pantalla para aplicarles la sala.
+                </div>
+            {% else %}
+                <div class="panel-body text-muted">Esta serie todavía no tiene fechas. Crealas en <em>Fechas</em>.</div>
+            {% endif %}
+        {% endif %}
+
+        <div class="panel-footer text-right">
+            <button type="submit" class="btn btn-primary btn-save">Guardar</button>
+        </div>
+    </form>
+{% endblock %}

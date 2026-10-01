@@ -1,0 +1,92 @@
+{% extends "pretixcontrol/organizers/base.html" %}
+{% load bootstrap3 %}
+{% load static %}
+{% block custom_header %}
+    {{ block.super }}
+    <link rel="stylesheet" type="text/css" href="{% static "pretixplugins/andinaseating/control.css" %}">
+{% endblock %}
+{% block title %}{{ plan.name }}{% endblock %}
+{% block inner %}
+    <p><a href="{% url "plugins:andinaseating:salas" organizer=request.organizer.slug %}"><span class="fa fa-arrow-left"></span> Salas</a></p>
+    <h1>{{ plan.name }} <small>{{ total_seats }} butaca{{ total_seats|pluralize }}</small></h1>
+
+    {% if events %}
+        <div class="alert alert-info">
+            Esta sala se usa en:
+            {% for e in events %}<strong>{{ e }}</strong>{% if not forloop.last %}, {% endif %}{% endfor %}.
+            Los cambios se aplican a esos eventos al guardar. No se pueden quitar butacas que ya estén vendidas.
+        </div>
+    {% endif %}
+
+    <div class="panel panel-default">
+        <div class="panel-heading"><h3 class="panel-title">Sectores</h3></div>
+        {% if sectors %}
+            <div class="table-responsive">
+                <table class="table table-condensed">
+                    <thead>
+                    <tr>
+                        <th>Sector</th>
+                        <th class="text-right">Filas</th>
+                        <th class="text-right">Butacas</th>
+                        <th>Categorías</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for s in sectors %}
+                        <tr>
+                            <td><strong>{{ s.name }}</strong></td>
+                            <td class="text-right">{{ s.rows }}</td>
+                            <td class="text-right">{{ s.seats }}</td>
+                            <td>{{ s.categories|join:", " }}</td>
+                            <td class="text-right">
+                                <details class="andinaseating-confirm">
+                                    <summary class="btn btn-default btn-sm"><span class="fa fa-trash"></span> Quitar</summary>
+                                    <form method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="delete_sector">
+                                        <input type="hidden" name="sector" value="{{ s.name }}">
+                                        <button type="submit" class="btn btn-danger btn-sm">Sí, quitar "{{ s.name }}"</button>
+                                    </form>
+                                </details>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="panel-body text-muted"><em>La sala todavía no tiene sectores. Subí el primero abajo.</em></div>
+        {% endif %}
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="panel panel-default">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="upload">
+        <div class="panel-heading"><h3 class="panel-title">Subir un sector</h3></div>
+        <div class="panel-body">
+            {% bootstrap_form form layout="horizontal" %}
+            <div class="col-md-9 col-md-offset-3 text-muted small">
+                Ejemplo de CSV:<br>
+                <code>fila;butaca</code><br>
+                <code>A;1</code><br>
+                <code>A;2</code><br>
+                Cada butaca queda con la categoría igual al nombre del sector, salvo que el archivo diga otra cosa.
+            </div>
+        </div>
+        <div class="panel-footer text-right">
+            <button type="submit" class="btn btn-primary"><span class="fa fa-upload"></span> Subir sector</button>
+        </div>
+    </form>
+
+    {% if not events %}
+        <details class="andinaseating-confirm">
+            <summary class="btn btn-default"><span class="fa fa-trash"></span> Borrar sala</summary>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete_sala">
+                <button type="submit" class="btn btn-danger">Sí, borrar "{{ plan.name }}"</button>
+            </form>
+        </details>
+    {% endif %}
+{% endblock %}
