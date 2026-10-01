@@ -1,0 +1,98 @@
+{% extends "pretixcontrol/organizers/base.html" %}
+{% load money %}
+{% block title %}{{ report.event.name }} · Mis ventas{% endblock %}
+{% block inner %}
+    <p><a href="{% url "plugins:andinaproductores:mis_ventas" organizer=request.organizer.slug %}"><span class="fa fa-arrow-left"></span> Mis ventas</a></p>
+    <h1>{{ report.event.name }} <small>{{ report.event.get_date_range_display }}</small></h1>
+
+    {% if subevents %}
+        <form method="get" class="form-inline" style="margin-bottom: 15px">
+            <label for="fecha-select">Función</label>
+            <select name="fecha" id="fecha-select" class="form-control">
+                <option value="">Todas las funciones</option>
+                {% for se in subevents %}
+                    <option value="{{ se.pk }}" {% if se == report.subevent %}selected{% endif %}>{{ se.name }} – {{ se.get_date_range_display }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-default">Ver</button>
+        </form>
+    {% endif %}
+
+    <div class="row">
+        <div class="col-sm-3 col-xs-6"><div class="panel panel-default"><div class="panel-body text-center">
+            <div class="h2">{{ report.tickets }}</div>entradas vendidas
+        </div></div></div>
+        <div class="col-sm-3 col-xs-6"><div class="panel panel-default"><div class="panel-body text-center">
+            <div class="h3">{{ report.gross|money:report.currency }}</div>recaudación
+        </div></div></div>
+        <div class="col-sm-3 col-xs-6"><div class="panel panel-default"><div class="panel-body text-center">
+            <div class="h3">− {{ report.commission|money:report.currency }}</div>comisión ({{ report.commission_pct }} %)
+        </div></div></div>
+        <div class="col-sm-3 col-xs-6"><div class="panel panel-success"><div class="panel-body text-center">
+            <div class="h3"><strong>{{ report.net|money:report.currency }}</strong></div>neto para vos
+        </div></div></div>
+    </div>
+
+    <p>
+        <a class="btn btn-primary" href="{% url "plugins:andinaproductores:pdf" organizer=request.organizer.slug evento=report.event.slug %}{% if report.subevent %}?fecha={{ report.subevent.pk }}{% endif %}">
+            <span class="fa fa-file-pdf-o"></span> Descargar PDF
+        </a>
+    </p>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="panel panel-default">
+                <div class="panel-heading"><h3 class="panel-title">Por tipo de entrada</h3></div>
+                <table class="table table-condensed">
+                    <thead><tr><th>Entrada</th><th class="text-right">Cantidad</th><th class="text-right">Recaudación</th></tr></thead>
+                    <tbody>
+                    {% for p in report.by_product %}
+                        <tr><td>{{ p.name }}</td><td class="text-right">{{ p.count }}</td><td class="text-right">{{ p.total|money:report.currency }}</td></tr>
+                    {% empty %}
+                        <tr><td colspan="3" class="text-muted">Todavía no hay ventas.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if report.by_date %}
+                <div class="panel panel-default">
+                    <div class="panel-heading"><h3 class="panel-title">Por función</h3></div>
+                    <table class="table table-condensed">
+                        <thead><tr><th>Función</th><th class="text-right">Cantidad</th><th class="text-right">Recaudación</th></tr></thead>
+                        <tbody>
+                        {% for d in report.by_date %}
+                            <tr><td>{{ d.name }}</td><td class="text-right">{{ d.count }}</td><td class="text-right">{{ d.total|money:report.currency }}</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+        </div>
+        <div class="col-md-6">
+            <div class="panel panel-default">
+                <div class="panel-heading"><h3 class="panel-title">Por día de venta</h3></div>
+                <table class="table table-condensed">
+                    <thead><tr><th>Día</th><th class="text-right">Cantidad</th><th class="text-right">Recaudación</th></tr></thead>
+                    <tbody>
+                    {% for d in report.by_day %}
+                        <tr><td>{{ d.day|date:"d/m/Y" }}</td><td class="text-right">{{ d.count }}</td><td class="text-right">{{ d.total|money:report.currency }}</td></tr>
+                    {% empty %}
+                        <tr><td colspan="3" class="text-muted">Todavía no hay ventas.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="panel panel-default">
+                <div class="panel-heading"><h3 class="panel-title">Boletería</h3></div>
+                <div class="panel-body">
+                    Boletos impresos cargados: <strong>{{ report.box_count }}</strong>
+                    (valor nominal {{ report.box_value|money:report.currency }}). Ese dinero se cobra en el teatro
+                    y no forma parte de esta liquidación.
+                </div>
+            </div>
+        </div>
+    </div>
+    <p class="text-muted small">
+        Incluye entradas de pedidos pagados y no anulados. No incluye pedidos de prueba ni datos de los compradores.
+    </p>
+{% endblock %}

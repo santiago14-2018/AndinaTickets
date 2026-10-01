@@ -13,6 +13,7 @@ cómo traer actualizaciones de pretix sin perder nuestro trabajo.
 | Entorno de desarrollo (Docker) | `deployment/docker/Dockerfile.dev`, `dev-entrypoint.sh`, `docker-compose.dev.yml` |
 | Salas, plan de butacas, selector, boletería | `src/pretix/plugins/andinaseating/` (plugin propio) |
 | Cobro con Mercado Pago (Checkout Pro) | `src/pretix/plugins/andinamercadopago/` (plugin propio) |
+| Portal de solo lectura para productores | `src/pretix/plugins/andinaproductores/` (plugin propio) |
 | Librería de planos seatmap-canvas (MIT, compilada) | `src/pretix/plugins/andinaseating/static/pretixplugins/andinaseating/vendor/seatmap-canvas/` |
 
 ### Plugin andinaseating: pantallas
@@ -40,6 +41,20 @@ escanean igual que una entrada online (pretixSCAN o check-in web).
   webhook); nunca se confía en los parámetros recibidos.
 - Los avisos (webhook) solo se piden si el sitio es público con https.
 
+### Plugin andinaproductores
+
+- Permiso propio "Portal del productor → Ver sus ventas" (a nivel organizador).
+- El equipo del productor se crea en Equipos con SOLO ese permiso y sin eventos: así pretix no le
+  da acceso a ninguna pantalla operativa (verificado: eventos, pedidos, productos, salas,
+  boletería, configuración y exportaciones quedan bloqueados).
+- Organizador → Productores (solo administradores): a cada evento se le asigna el equipo del
+  productor y la comisión del servicio (%).
+- Organizador → Mis ventas: entradas vendidas online, recaudación, comisión y neto, por tipo de
+  entrada, por función y por día, con descarga en PDF. Sin datos de compradores. La boletería se
+  informa aparte (ese dinero lo cobra el teatro).
+- Importante: no usar el parámetro de URL `event` en vistas de organizador: el middleware de
+  permisos del panel lo trata como pantalla de evento (por eso se llama `evento`).
+
 ### Actualizar seatmap-canvas
 
 ```bash
@@ -59,7 +74,7 @@ Revisar esta lista en cada actualización desde pretix.
 
 | Archivo | Cambio | Por qué |
 |---|---|---|
-| `src/pretix/_base_settings.py` | `'pretix.plugins.andinaseating'` y `'pretix.plugins.andinamercadopago'` en `INSTALLED_APPS` | Cargar nuestros plugins |
+| `src/pretix/_base_settings.py` | `'pretix.plugins.andinaseating'`, `'pretix.plugins.andinamercadopago'` y `'pretix.plugins.andinaproductores'` en `INSTALLED_APPS` | Cargar nuestros plugins |
 | `src/pretix/presale/views/event.py` | `itemnum` se cuenta antes de quitar los productos con butaca | Que un producto sin butaca no aparezca precargado con cantidad 1 junto al plano |
 | `src/pretix/presale/templates/pretixpresale/event/index.html` | Se pasa `add_to_cart_below` a la señal `render_seating_plan` | Mostrar un solo botón "Agregar al carrito" |
 

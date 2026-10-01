@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'pretix.plugins.webcheckin',
     'pretix.plugins.andinaseating',
     'pretix.plugins.andinamercadopago',
+    'pretix.plugins.andinaproductores',
     'django_countries',
     'oauth2_provider',
     'phonenumber_field',

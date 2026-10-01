@@ -1,0 +1,53 @@
+{% extends "pretixcontrol/organizers/base.html" %}
+{% block title %}Productores{% endblock %}
+{% block inner %}
+    <h1>Productores</h1>
+    <p>
+        Asigná a cada evento el equipo del productor que puede ver sus ventas y la comisión del servicio.
+        El productor solo ve <strong>Mis ventas</strong>: no tiene acceso a ninguna tarea operativa ni a los
+        datos de los compradores.
+    </p>
+    <div class="alert alert-info">
+        <strong>Cómo crear el acceso de un productor:</strong>
+        en <a href="{{ teams_url }}">Equipos</a> creá un equipo (por ejemplo "Productora Teatro Sur"), invitá a sus
+        personas y dale solo el permiso <em>Portal del productor → Ver sus ventas</em>. No marques eventos ni otros
+        permisos. Después elegí ese equipo acá abajo en sus eventos.
+    </div>
+    {% if not teams %}
+        <div class="alert alert-warning">Todavía no hay equipos con el permiso "Portal del productor".</div>
+    {% endif %}
+    <form method="post">
+        {% csrf_token %}
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                <tr>
+                    <th>Evento</th>
+                    <th>Productor (equipo)</th>
+                    <th style="width: 160px">Comisión del servicio (%)</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for r in rows %}
+                    <tr>
+                        <td><strong>{{ r.event.name }}</strong><br><small class="text-muted">{{ r.event.get_date_range_display }}</small></td>
+                        <td>
+                            <select name="team_{{ r.event.pk }}" class="form-control" aria-label="Productor de {{ r.event.name }}">
+                                <option value="">— Sin productor —</option>
+                                {% for t in teams %}
+                                    <option value="{{ t.pk }}" {% if t.pk == r.team %}selected{% endif %}>{{ t.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td>
+                            <input type="text" inputmode="decimal" name="commission_{{ r.event.pk }}" class="form-control"
+                                   value="{{ r.commission }}" aria-label="Comisión de {{ r.event.name }}">
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="text-right"><button type="submit" class="btn btn-primary btn-save">Guardar</button></div>
+    </form>
+{% endblock %}

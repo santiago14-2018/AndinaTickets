@@ -1,0 +1,47 @@
+{% extends "pretixcontrol/organizers/base.html" %}
+{% load money %}
+{% block title %}Mis ventas{% endblock %}
+{% block inner %}
+    <h1>Mis ventas</h1>
+    <p>
+        Ventas online de tus eventos, la comisión del servicio y el neto a liquidar. Los datos se actualizan
+        en el momento. Entrá a un evento para ver el detalle y descargar el PDF.
+    </p>
+    {% if reports %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                <tr>
+                    <th>Evento</th>
+                    <th class="text-right">Entradas</th>
+                    <th class="text-right">Recaudación</th>
+                    <th class="text-right">Comisión</th>
+                    <th class="text-right">Neto</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for r in reports %}
+                    <tr>
+                        <td>
+                            <strong>{{ r.event.name }}</strong><br>
+                            <small class="text-muted">{{ r.event.get_date_range_display }}{% if r.event.has_subevents %} · varias funciones{% endif %}</small>
+                        </td>
+                        <td class="text-right">{{ r.tickets }}</td>
+                        <td class="text-right">{{ r.gross|money:r.currency }}</td>
+                        <td class="text-right">− {{ r.commission|money:r.currency }} <small class="text-muted">({{ r.commission_pct }} %)</small></td>
+                        <td class="text-right"><strong>{{ r.net|money:r.currency }}</strong></td>
+                        <td class="text-right">
+                            <a class="btn btn-default btn-sm" href="{% url "plugins:andinaproductores:evento" organizer=request.organizer.slug evento=r.event.slug %}">Ver detalle</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            Todavía no tenés eventos asignados.{% if is_admin %} Asignalos en <strong>Productores</strong>.{% endif %}
+        </div>
+    {% endif %}
+{% endblock %}
