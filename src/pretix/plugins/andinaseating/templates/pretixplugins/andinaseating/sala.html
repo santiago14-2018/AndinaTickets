@@ -19,18 +19,65 @@
         </div>
     {% endif %}
 
-    {% if blocks %}
-        <div class="panel panel-default">
-            <div class="panel-heading"><h3 class="panel-title">Vista previa</h3></div>
-            <div class="panel-body">
-                <div id="sala-map" class="andina-seatmap" data-source="sala-blocks" data-mode="preview"></div>
-                <p class="text-muted small">Hacé clic en un sector o usá la rueda del mouse para acercar.</p>
+    <div class="panel panel-default">
+        <div class="panel-heading"><h3 class="panel-title">Plano y generador de sectores</h3></div>
+        <div class="panel-body">
+            <div class="row">
+                <div class="col-md-7">
+                    <div id="sala-map" class="andina-seatmap" data-source="sala-blocks" data-mode="preview"
+                         data-generator-form="gen-form" data-preview-url="{{ preview_url }}">
+                        {% if not blocks %}
+                            <p class="andinaseating-map-empty text-muted">
+                                La sala todavía no tiene sectores. Completá el generador y vas a ver el sector acá.
+                            </p>
+                        {% endif %}
+                    </div>
+                    <p class="text-muted small" id="gen-status" aria-live="polite">
+                        {% if blocks %}Hacé clic en un sector o usá la rueda del mouse para acercar.{% endif %}
+                    </p>
+                </div>
+                <div class="col-md-5">
+                    <form method="post" id="gen-form" class="andinaseating-generator" data-open="{% if open_generator %}true{% endif %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="generate">
+                        <p class="text-muted small">
+                            Cambiá los valores y mirá el resultado en el plano (en naranja). Cuando esté bien,
+                            tocá "Agregar a la sala".
+                        </p>
+                        {% bootstrap_form_errors gen_form type="non_fields" %}
+                        <div class="row">
+                            <div class="col-sm-6">{% bootstrap_field gen_form.name %}</div>
+                            <div class="col-sm-6">{% bootstrap_field gen_form.category %}</div>
+                        </div>
+                        <div class="row">
+                            <div class="col-sm-6">{% bootstrap_field gen_form.rows %}</div>
+                            <div class="col-sm-6">{% bootstrap_field gen_form.seats_per_row %}</div>
+                        </div>
+                        <div class="row">
+                            <div class="col-sm-6">{% bootstrap_field gen_form.first_row %}</div>
+                            <div class="col-sm-6">{% bootstrap_field gen_form.first_number %}</div>
+                        </div>
+                        {% bootstrap_field gen_form.right_to_left %}
+                        <div class="row">
+                            <div class="col-sm-6">{% bootstrap_field gen_form.aisle_after %}</div>
+                            <div class="col-sm-6">{% bootstrap_field gen_form.curve %}</div>
+                        </div>
+                        {% bootstrap_field gen_form.stagger %}
+                        <div class="row">
+                            <div class="col-sm-6">{% bootstrap_field gen_form.seat_spacing %}</div>
+                            <div class="col-sm-6">{% bootstrap_field gen_form.row_spacing %}</div>
+                        </div>
+                        <div class="text-right">
+                            <button type="submit" class="btn btn-primary"><span class="fa fa-plus"></span> Agregar a la sala</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
-        {{ blocks|json_script:"sala-blocks" }}
-        <script src="{% static "pretixplugins/andinaseating/vendor/seatmap-canvas/seatmap.canvas.min.js" %}"></script>
-        <script src="{% static "pretixplugins/andinaseating/seatmap-andina.js" %}"></script>
-    {% endif %}
+    </div>
+    {{ blocks|json_script:"sala-blocks" }}
+    <script src="{% static "pretixplugins/andinaseating/vendor/seatmap-canvas/seatmap.canvas.min.js" %}"></script>
+    <script src="{% static "pretixplugins/andinaseating/seatmap-andina.js" %}"></script>
 
     <div class="panel panel-default">
         <div class="panel-heading"><h3 class="panel-title">Sectores</h3></div>
@@ -70,14 +117,14 @@
                 </table>
             </div>
         {% else %}
-            <div class="panel-body text-muted"><em>La sala todavía no tiene sectores. Subí el primero abajo.</em></div>
+            <div class="panel-body text-muted"><em>La sala todavía no tiene sectores. Generá uno arriba o subí un archivo abajo.</em></div>
         {% endif %}
     </div>
 
     <form method="post" enctype="multipart/form-data" class="panel panel-default">
         {% csrf_token %}
         <input type="hidden" name="action" value="upload">
-        <div class="panel-heading"><h3 class="panel-title">Subir un sector</h3></div>
+        <div class="panel-heading"><h3 class="panel-title">Subir un sector desde un archivo</h3></div>
         <div class="panel-body">
             {% bootstrap_form form layout="horizontal" %}
             <div class="col-md-9 col-md-offset-3 text-muted small">

@@ -6,9 +6,10 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.views import View
 from django.views.generic import TemplateView
 
 from pretix.base.models import SeatingPlan
@@ -19,12 +20,12 @@ from pretix.base.services.seating import (
 from pretix.control.permissions import OrganizerPermissionRequiredMixin
 from pretix.control.views.organizer import OrganizerDetailViewMixin
 
-from .forms import SalaForm, SectorUploadForm
+from .forms import GeneratorForm, SalaForm, SectorUploadForm
 from .layout import (
-    add_sector, empty_layout, parse_sector_file, remove_sector,
-    sectors_summary,
+    add_sector, empty_layout, generate_sector, parse_sector_file,
+    remove_sector, sectors_summary,
 )
-from .seatmap import plan_seats, seats_to_blocks
+from .seatmap import layout_seats, plan_seats, seats_to_blocks
 
 
 def _error_text(e):
@@ -116,7 +117,12 @@ class SalaDetailView(SalaMixin, TemplateView):
         ctx['total_seats'] = sum(s['seats'] for s in ctx['sectors'])
         ctx['events'] = list(plan.events.all()) + [se for se in plan.subevents.select_related('event')]
         ctx['form'] = kwargs.get('form') or SectorUploadForm()
+        ctx['gen_form'] = kwargs.get('gen_form') or GeneratorForm()
+        ctx['open_generator'] = 'gen_form' in kwargs
         ctx['blocks'] = seats_to_blocks(plan_seats(plan)) if ctx['total_seats'] else []
+        ctx['preview_url'] = reverse('plugins:andinaseating:sala.preview', kwargs={
+            'organizer': self.request.organizer.slug, 'sala': plan.pk,
+        })
         return ctx
 
     def post(self, request, *args, **kwargs):
@@ -139,6 +145,22 @@ class SalaDetailView(SalaMixin, TemplateView):
             n = sum(len(r['seats']) for r in zone['rows'])
             messages.success(request, 'Sector "{}" guardado con {} butacas.'.format(name, n))
 
+        elif action == 'generate':
+            form = GeneratorForm(request.POST)
+            if not form.is_valid():
+                return self.render_to_response(self.get_context_data(gen_form=form))
+            try:
+                zone, categories = generate_sector(**form.cleaned_data)
+                layout = add_sector(plan.layout_data, zone, categories)
+                save_layout(plan, layout, request.user, {'sector': zone['name'], 'generator': {
+                    k: v for k, v in form.cleaned_data.items()
+                }})
+            except (ValidationError, SeatProtected) as e:
+                form.add_error(None, _error_text(e))
+                return self.render_to_response(self.get_context_data(gen_form=form))
+            n = sum(len(r['seats']) for r in zone['rows'])
+            messages.success(request, 'Sector "{}" generado con {} butacas.'.format(zone['name'], n))
+
         elif action == 'delete_sector':
             name = request.POST.get('sector', '')
             try:
@@ -158,3 +180,32 @@ class SalaDetailView(SalaMixin, TemplateView):
                 return redirect(self.list_url())
 
         return redirect(self.detail_url(plan))
+
+
+class SalaGeneratorPreviewView(SalaMixin, View):
+    """
+    Vista previa en vivo del generador: devuelve el plano de la sala con el sector
+    generado (marcado) en el formato de seatmap-canvas. No guarda nada.
+    """
+
+    def get(self, request, *args, **kwargs):
+        try:
+            plan = request.organizer.seating_plans.get(pk=kwargs['sala'])
+        except SeatingPlan.DoesNotExist:
+            raise Http404()
+        form = GeneratorForm(request.GET)
+        if not form.is_valid():
+            errors = [' '.join(e) for e in form.errors.values()]
+            return JsonResponse({'errors': errors}, status=400)
+        try:
+            zone, categories = generate_sector(**form.cleaned_data)
+            layout = add_sector(plan.layout_data, zone, categories)
+        except ValidationError as e:
+            return JsonResponse({'errors': e.messages}, status=400)
+        name = zone['name']
+        blocks = seats_to_blocks(layout_seats(layout), state=lambda s: {'selected': s.zone == name})
+        return JsonResponse({
+            'blocks': blocks,
+            'sector_seats': sum(len(r['seats']) for r in zone['rows']),
+            'total_seats': sum(len(b['seats']) for b in blocks),
+        })

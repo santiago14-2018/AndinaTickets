@@ -6,7 +6,7 @@ from django.urls import re_path
 
 from .boleteria_views import BoleteriaView
 from .event_views import EventSeatingView
-from .views import SalaDetailView, SalaListView
+from .views import SalaDetailView, SalaGeneratorPreviewView, SalaListView
 
 urlpatterns = [
     re_path(r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/butacas/$', EventSeatingView.as_view(),
@@ -15,4 +15,6 @@ urlpatterns = [
             name='boleteria'),
     re_path(r'^control/organizer/(?P<organizer>[^/]+)/salas/$', SalaListView.as_view(), name='salas'),
     re_path(r'^control/organizer/(?P<organizer>[^/]+)/salas/(?P<sala>\d+)/$', SalaDetailView.as_view(), name='sala'),
+    re_path(r'^control/organizer/(?P<organizer>[^/]+)/salas/(?P<sala>\d+)/vista-previa/$',
+            SalaGeneratorPreviewView.as_view(), name='sala.preview'),
 ]

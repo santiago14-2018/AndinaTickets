@@ -10,6 +10,7 @@ el plano de la sala. No toca la base de datos.
 import csv
 import io
 import json
+import math
 
 from django.core.exceptions import ValidationError
 from django.utils.text import slugify
@@ -28,6 +29,72 @@ CSV_COLUMNS = {
 
 def empty_layout(name):
     return {'name': name, 'size': {'width': 400, 'height': 300}, 'categories': [], 'zones': []}
+
+
+def row_names(first, count):
+    """Nombres de fila desde ``first``: 1, 2, 3… o A, B, … Z, AA, AB…"""
+    first = (first or 'A').strip().upper()
+    if first.isdigit():
+        return [str(int(first) + i) for i in range(count)]
+
+    def to_int(s):
+        n = 0
+        for ch in s:
+            n = n * 26 + (ord(ch) - ord('A') + 1)
+        return n
+
+    def to_str(n):
+        s = ''
+        while n:
+            n, r = divmod(n - 1, 26)
+            s = chr(ord('A') + r) + s
+        return s
+
+    if not first.isalpha() or not first.isascii():
+        raise ValidationError('La primera fila tiene que ser un número o letras de la A a la Z.')
+    start = to_int(first)
+    return [to_str(start + i) for i in range(count)]
+
+
+def generate_sector(name, rows, seats_per_row, first_row='A', first_number=1, right_to_left=False,
+                    seat_spacing=SEAT_SPACING, row_spacing=40, aisle_after=0, stagger=False, curve=0,
+                    category=''):
+    """
+    Arma un sector rectangular de ``rows`` filas por ``seats_per_row`` butacas.
+
+    - ``aisle_after``: deja un pasillo (el ancho de una butaca) después de esa butaca
+      contando desde la izquierda. 0 = sin pasillo.
+    - ``stagger``: corre media butaca las filas alternadas.
+    - ``curve``: cuántos píxeles más atrás queda el centro de la fila respecto de las
+      puntas (las puntas quedan más cerca del escenario, que está arriba).
+    """
+    category = category or name
+    prefix = slugify(name) or 'sector'
+    width = (seats_per_row - 1) * seat_spacing + (seat_spacing if aisle_after else 0)
+    half = width / 2 or 1
+    zone = {'name': name, 'position': {'x': 0, 'y': 0}, 'rows': []}
+    for ri, row in enumerate(row_names(first_row, rows)):
+        shift = seat_spacing / 2 if stagger and ri % 2 else 0
+        seats = []
+        for si in range(seats_per_row):
+            x = si * seat_spacing + (seat_spacing if aisle_after and si >= aisle_after else 0)
+            t = (x - half) / half
+            y = curve * (1 - t * t)
+            number = first_number + (seats_per_row - 1 - si if right_to_left else si)
+            seats.append({
+                'seat_guid': '{}-{}-{}'.format(prefix, row, number),
+                'seat_number': str(number),
+                'category': category,
+                'position': {'x': round(x + shift, 2), 'y': round(y, 2)},
+            })
+        zone['rows'].append({
+            'row_number': row,
+            'row_label': 'Fila {}'.format(row),
+            'seat_label': 'Butaca %s',
+            'position': {'x': 0, 'y': ri * row_spacing},
+            'seats': seats,
+        })
+    return zone, []
 
 
 def parse_sector_file(content: bytes, filename: str, sector_name: str):
@@ -164,7 +231,8 @@ def _resize(layout):
     for z in layout['zones']:
         right, bottom = _zone_bottom_right(z)
         width, height = max(width, right), max(height, bottom)
-    layout['size'] = {'width': width, 'height': height}
+    # El esquema de pretix exige enteros (con filas alternadas las posiciones tienen decimales).
+    layout['size'] = {'width': math.ceil(width), 'height': math.ceil(height)}
 
 
 def add_sector(layout, zone, categories):
