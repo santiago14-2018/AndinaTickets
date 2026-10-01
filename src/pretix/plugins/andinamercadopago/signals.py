@@ -12,6 +12,8 @@ from pretix.base.signals import (
     register_global_settings, register_payment_providers,
 )
 
+from . import logentries  # NOQA: registra los textos del historial
+
 
 @receiver(register_payment_providers, dispatch_uid="payment_andinamercadopago")
 def register_payment_provider(sender, **kwargs):

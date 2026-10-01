@@ -40,6 +40,18 @@ escanean igual que una entrada online (pretixSCAN o check-in web).
 - El estado del pago siempre se consulta a la API de Mercado Pago (al volver el comprador y por
   webhook); nunca se confía en los parámetros recibidos.
 - Los avisos (webhook) solo se piden si el sitio es público con https.
+- El historial del pedido muestra los eventos de Mercado Pago con texto legible (`logentries.py`).
+
+### Pruebas automáticas
+
+```bash
+docker exec -e PRETIX_DATABASE_BACKEND=sqlite3 -e PRETIX_DATABASE_NAME= andina-tickets-web-1   sh -c 'cd /pretix/src && python3 -m pytest --ds=tests.settings tests/plugins/andinamercadopago -p no:cacheprovider'
+```
+
+- `--ds=tests.settings` es obligatorio: el contenedor define `DJANGO_SETTINGS_MODULE=pretix.settings`
+  y pytest le da prioridad sobre `setup.cfg`.
+- Las variables de base de datos hacen que use SQLite en memoria y no toque la base de desarrollo.
+- La API de Mercado Pago se simula con `responses`: no hace falta conexión ni credenciales.
 
 ### Plugin andinaproductores
 

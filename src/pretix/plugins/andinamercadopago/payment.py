@@ -29,7 +29,7 @@ from pretix.base.models import Order, OrderPayment, OrderRefund, Quota
 from pretix.base.payment import BasePaymentProvider, PaymentException
 from pretix.base.settings import GlobalSettingsObject
 from pretix.helpers import OF_SELF
-from pretix.multidomain.urlreverse import build_absolute_uri
+from pretix.multidomain.urlreverse import eventreverse_absolute
 
 from .mp_api import MercadoPagoAPI, MercadoPagoError
 
@@ -143,7 +143,7 @@ class MercadoPago(BasePaymentProvider):
             'test_configured': bool(access_token(True)),
             'webhook_secret': bool(global_setting('webhook_secret')),
             'global_url': reverse('control:global.settings'),
-            'webhook_url': build_absolute_uri(self.event, 'plugins:andinamercadopago:webhook'),
+            'webhook_url': eventreverse_absolute(self.event, 'plugins:andinamercadopago:webhook'),
             'currency_ok': self.event.currency == 'ARS',
         }, request=request)
 
@@ -177,7 +177,7 @@ class MercadoPago(BasePaymentProvider):
 
     def return_url(self, payment):
         order = payment.order
-        return build_absolute_uri(self.event, 'plugins:andinamercadopago:return', kwargs={
+        return eventreverse_absolute(self.event, 'plugins:andinamercadopago:return', kwargs={
             'order': order.code, 'hash': order.tagged_secret(SECRET_TAG), 'payment': payment.pk,
         })
 
@@ -211,7 +211,7 @@ class MercadoPago(BasePaymentProvider):
             preference['statement_descriptor'] = descriptor
         # Mercado Pago solo puede avisar a una dirección pública (no a localhost en desarrollo).
         if django_settings.SITE_URL.startswith('https://'):
-            preference['notification_url'] = build_absolute_uri(self.event, 'plugins:andinamercadopago:webhook')
+            preference['notification_url'] = eventreverse_absolute(self.event, 'plugins:andinamercadopago:webhook')
 
         try:
             result = self.api(order.testmode).create_preference(preference)
