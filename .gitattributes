@@ -23,3 +23,6 @@ src/pretix/static/fabric/* linguist-vendored
 *.png binary
 *.gif binary
 *.jpg binary
+
+# AndinaTickets: los scripts de shell corren en Linux (Docker); siempre con saltos de línea LF.
+*.sh text eol=lf
