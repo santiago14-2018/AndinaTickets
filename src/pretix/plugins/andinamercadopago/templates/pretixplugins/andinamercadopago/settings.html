@@ -1,0 +1,16 @@
+<div class="alert alert-info">
+    <p>
+        Todo el dinero entra a una sola cuenta de Mercado Pago. Las credenciales se cargan una vez para toda la
+        plataforma en <a href="{{ global_url }}">Configuración global</a> (requiere modo administrador).
+    </p>
+    <ul>
+        <li>Credenciales de producción: {% if configured %}<strong>cargadas</strong>{% else %}<strong>faltan</strong>{% endif %}</li>
+        <li>Credenciales de prueba: {% if test_configured %}<strong>cargadas</strong>{% else %}<strong>faltan</strong>{% endif %}</li>
+        <li>Verificación de firma de los avisos: {% if webhook_secret %}<strong>activada</strong>{% else %}desactivada (opcional){% endif %}</li>
+        {% if not currency_ok %}<li><strong>La moneda del evento tiene que ser ARS.</strong></li>{% endif %}
+    </ul>
+    <p>
+        Dirección de avisos (webhook) de este evento:<br><code>{{ webhook_url }}</code><br>
+        Se envía sola en cada pago; solo funciona si el sitio es público y usa https.
+    </p>
+</div>

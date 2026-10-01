@@ -12,6 +12,7 @@ cómo traer actualizaciones de pretix sin perder nuestro trabajo.
 |---|---|
 | Entorno de desarrollo (Docker) | `deployment/docker/Dockerfile.dev`, `dev-entrypoint.sh`, `docker-compose.dev.yml` |
 | Salas, plan de butacas, selector, boletería | `src/pretix/plugins/andinaseating/` (plugin propio) |
+| Cobro con Mercado Pago (Checkout Pro) | `src/pretix/plugins/andinamercadopago/` (plugin propio) |
 | Librería de planos seatmap-canvas (MIT, compilada) | `src/pretix/plugins/andinaseating/static/pretixplugins/andinaseating/vendor/seatmap-canvas/` |
 
 ### Plugin andinaseating: pantallas
@@ -26,6 +27,18 @@ cómo traer actualizaciones de pretix sin perder nuestro trabajo.
 Los boletos impresos se cargan como entradas del canal de venta **Boletería**
 (`api.boleteria`), con el código del boleto como código de la entrada. En la puerta se
 escanean igual que una entrada online (pretixSCAN o check-in web).
+
+### Plugin andinamercadopago
+
+- Modelo: todo el dinero entra a una sola cuenta de Mercado Pago (la de la plataforma).
+- Credenciales: Administración → Configuración global (access token de producción, de prueba,
+  clave secreta de notificaciones y texto del resumen de tarjeta). En cada evento solo se activa
+  "Mercado Pago" en Configuración → Pagos. La moneda del evento tiene que ser ARS.
+- Medios: tarjeta de crédito, débito y dinero en cuenta. Sin efectivo ni cajeros, y en modo
+  binario (aprobado o rechazado), para que las butacas no queden esperando pagos lentos.
+- El estado del pago siempre se consulta a la API de Mercado Pago (al volver el comprador y por
+  webhook); nunca se confía en los parámetros recibidos.
+- Los avisos (webhook) solo se piden si el sitio es público con https.
 
 ### Actualizar seatmap-canvas
 
@@ -46,7 +59,7 @@ Revisar esta lista en cada actualización desde pretix.
 
 | Archivo | Cambio | Por qué |
 |---|---|---|
-| `src/pretix/_base_settings.py` | `'pretix.plugins.andinaseating'` en `INSTALLED_APPS` | Cargar nuestro plugin |
+| `src/pretix/_base_settings.py` | `'pretix.plugins.andinaseating'` y `'pretix.plugins.andinamercadopago'` en `INSTALLED_APPS` | Cargar nuestros plugins |
 | `src/pretix/presale/views/event.py` | `itemnum` se cuenta antes de quitar los productos con butaca | Que un producto sin butaca no aparezca precargado con cantidad 1 junto al plano |
 | `src/pretix/presale/templates/pretixpresale/event/index.html` | Se pasa `add_to_cart_below` a la señal `render_seating_plan` | Mostrar un solo botón "Agregar al carrito" |
 

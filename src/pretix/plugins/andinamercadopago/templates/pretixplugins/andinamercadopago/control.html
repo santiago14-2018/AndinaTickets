@@ -1,0 +1,22 @@
+{% if info.id %}
+    <dl class="dl-horizontal">
+        <dt>Pago en Mercado Pago</dt>
+        <dd>#{{ info.id }}</dd>
+        <dt>Estado</dt>
+        <dd>{{ info.status }}{% if info.status_detail %} ({{ info.status_detail }}){% endif %}</dd>
+        {% if info.payment_method_id %}
+            <dt>Medio</dt>
+            <dd>{{ info.payment_method_id }}{% if info.installments and info.installments > 1 %} · {{ info.installments }} cuotas{% endif %}</dd>
+        {% endif %}
+        {% if info.date_approved %}
+            <dt>Aprobado</dt>
+            <dd>{{ info.date_approved }}</dd>
+        {% endif %}
+        {% if info.live_mode == False %}
+            <dt>Modo</dt>
+            <dd>Prueba</dd>
+        {% endif %}
+    </dl>
+{% elif info.preference_id %}
+    <p>Se inició el pago en Mercado Pago (preferencia {{ info.preference_id }}), pero todavía no hay un pago.</p>
+{% endif %}
