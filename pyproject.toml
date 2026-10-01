@@ -59,7 +59,7 @@ dependencies = [
   "django-statici18n==2.8.*",
   "djangorestframework==3.17.*",
   "dnspython==2.8.*",
-  "drf_ujson2==1.7.*",
+  "drf_ujson2==1.8.*",
   "geoip2==5.*",
   "importlib_metadata==9.*",  # Polyfill, we can probably drop this once we require Python 3.10+
   "isoweek",
