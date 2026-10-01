@@ -12,6 +12,29 @@ cómo traer actualizaciones de pretix sin perder nuestro trabajo.
 |---|---|
 | Entorno de desarrollo (Docker) | `deployment/docker/Dockerfile.dev`, `dev-entrypoint.sh`, `docker-compose.dev.yml` |
 | Salas, plan de butacas, selector, boletería | `src/pretix/plugins/andinaseating/` (plugin propio) |
+| Librería de planos seatmap-canvas (MIT, compilada) | `src/pretix/plugins/andinaseating/static/pretixplugins/andinaseating/vendor/seatmap-canvas/` |
+
+### Plugin andinaseating: pantallas
+
+| Pantalla | Dónde | Para qué |
+|---|---|---|
+| Salas | Organizador → Salas | Crear salas y subir sectores (JSON o CSV), con vista previa del plano |
+| Plan de butacas | Evento → Plan de butacas | Elegir sala (por fecha en una serie) y conectar categorías con productos y cupos |
+| Boletería | Evento → Boletería | Reservar butacas para venta presencial y cargar boletos impresos (CSV `codigo;fila;butaca`) |
+
+Los boletos impresos se cargan como entradas del canal de venta **Boletería**
+(`api.boleteria`), con el código del boleto como código de la entrada. En la puerta se
+escanean igual que una entrada online (pretixSCAN o check-in web).
+
+### Actualizar seatmap-canvas
+
+```bash
+git clone https://github.com/alisaitteke/seatmap-canvas.git && cd seatmap-canvas
+npm ci && npm run build
+# copiar dist/cjs/seatmap.canvas.js como seatmap.canvas.min.js y dist/seatmap.canvas.css
+# quitar la línea "//# sourceMappingURL=..." del .js (no incluimos el .map)
+# actualizar VERSION.txt
+```
 
 Regla: **todo lo nuevo va en el plugin**. El núcleo de pretix se toca solo cuando no
 hay otra forma, y cada cambio se marca con un comentario `AndinaTickets:` y se anota abajo.

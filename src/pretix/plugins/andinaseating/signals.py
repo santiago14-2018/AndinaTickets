@@ -48,17 +48,24 @@ def andinaseating_nav_organizer(sender, request=None, **kwargs):
 
 @receiver(nav_event, dispatch_uid="andinaseating_nav_event")
 def andinaseating_nav_event(sender, request=None, **kwargs):
-    if not request.user.has_event_permission(request.organizer, request.event, 'event.items:write', request=request):
-        return []
     url = resolve(request.path_info)
-    return [{
-        'label': 'Plan de butacas',
-        'url': reverse('plugins:andinaseating:event', kwargs={
-            'organizer': request.organizer.slug, 'event': request.event.slug,
-        }),
-        'active': url.namespace == 'plugins:andinaseating' and url.url_name == 'event',
-        'icon': 'th',
-    }]
+    kw = {'organizer': request.organizer.slug, 'event': request.event.slug}
+    nav = []
+    if request.user.has_event_permission(request.organizer, request.event, 'event.items:write', request=request):
+        nav.append({
+            'label': 'Plan de butacas',
+            'url': reverse('plugins:andinaseating:event', kwargs=kw),
+            'active': url.namespace == 'plugins:andinaseating' and url.url_name == 'event',
+            'icon': 'th',
+        })
+    if request.user.has_event_permission(request.organizer, request.event, 'event.orders:write', request=request):
+        nav.append({
+            'label': 'Boletería',
+            'url': reverse('plugins:andinaseating:boleteria', kwargs=kw),
+            'active': url.namespace == 'plugins:andinaseating' and url.url_name == 'boleteria',
+            'icon': 'ticket',
+        })
+    return nav
 
 
 def _is_sellable(item, voucher):
