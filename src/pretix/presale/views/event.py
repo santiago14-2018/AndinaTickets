@@ -227,8 +227,10 @@ class EventIndex(EventViewMixin, EventListMixin, CartMixin, TemplateView):
                             context['waitinglist_seated'] = True
                             break
 
-            items = [i for i in items if not i.requires_seat]
+            # AndinaTickets: count seated products too, so a single unseated product next to a
+            # seating plan is not pre-filled with quantity 1.
             context['itemnum'] = len(items)
+            items = [i for i in items if not i.requires_seat]
             context['allfree'] = all(
                 item.display_price.gross == Decimal('0.00') and not item.mandatory_priced_addons
                 for item in items if not item.has_variations

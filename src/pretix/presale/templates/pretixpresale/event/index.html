@@ -192,9 +192,9 @@
                 <input type="hidden" name="subevent" value="{{ subevent.id|default_if_none:"" }}" />
                 {% if ev.seating_plan_id and event.settings.seating_choice %}
                     {% if event.has_subevents %}
-                        {% eventsignal event "pretix.presale.signals.render_seating_plan" request=request subevent=subevent %}
+                        {% eventsignal event "pretix.presale.signals.render_seating_plan" request=request subevent=subevent add_to_cart_below=display_add_to_cart %}
                     {% else %}
-                        {% eventsignal event "pretix.presale.signals.render_seating_plan" request=request %}
+                        {% eventsignal event "pretix.presale.signals.render_seating_plan" request=request add_to_cart_below=display_add_to_cart %}
                     {% endif %}
                 {% endif %}
 
