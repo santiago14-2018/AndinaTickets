@@ -1,5 +1,5 @@
 # AndinaTickets — fork de Pretix adaptado para Argentina (MercadoPago en vez
-# de Stripe). Entorno de desarrollo local. Puerto principal 8124 y Mailpit en
+# de Stripe). Entorno de desarrollo local. Puerto principal 8130 y Mailpit en
 # 8026 para no chocar con hi.events, que corre en 8123.
 name: andina-tickets
 

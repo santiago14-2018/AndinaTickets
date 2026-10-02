@@ -5,7 +5,8 @@ butacas numeradas, salas por sectores, boletería, Mercado Pago y portal de prod
 
 Este archivo es la guía del fork: qué cambiamos de pretix, dónde vive lo nuestro y
 cómo traer actualizaciones de pretix sin perder nuestro trabajo. La lista de cambios, con
-qué es propio y qué no, está en [CAMBIOS.md](CAMBIOS.md).
+qué es propio y qué no, está en [CAMBIOS.md](CAMBIOS.md). Para instalar todo en otra PC
+con Windows (y pasarle los datos), ver [INSTALAR.md](INSTALAR.md).
 
 ## Dónde vive lo nuestro
 
