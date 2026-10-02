@@ -28,3 +28,14 @@ node_modules/
 .vite/
 
 
+
+# AndinaTickets: lo privado nunca va a Git (ver ANDINA.md, "Qué es público y qué es privado")
+/privado/*
+!/privado/LEEME.md
+.env
+.env.*
+*.sql
+*.sql.gz
+*.dump
+*.pem
+*.key

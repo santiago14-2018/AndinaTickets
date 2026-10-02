@@ -770,7 +770,7 @@ msgstr ""
 #, python-brace-format
 msgid "<a {a_name_attr}>powered by {name}</a> <a {a_attr}>based on pretix</a>"
 msgstr ""
-"<a {a_name_attr}>impulsado por {name}</a> <a {a_attr}>basado en pretix</a> <a"
+"<a {a_name_attr}>impulsado por {name}</a> <a {a_attr}>basado en pretix</a>"
 
 #: pretix/base/context.py
 #, python-brace-format

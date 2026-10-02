@@ -1,7 +1,7 @@
 # AndinaTickets
 
 AndinaTickets es un fork de [pretix](https://pretix.eu/) adaptado para Argentina:
-butacas numeradas, salas por sectores, boletería y (próximamente) MercadoPago.
+butacas numeradas, salas por sectores, boletería, Mercado Pago y portal de productores.
 
 Este archivo es la guía del fork: qué cambiamos de pretix, dónde vive lo nuestro y
 cómo traer actualizaciones de pretix sin perder nuestro trabajo.
@@ -89,6 +89,7 @@ Revisar esta lista en cada actualización desde pretix.
 | `src/pretix/_base_settings.py` | `'pretix.plugins.andinaseating'`, `'pretix.plugins.andinamercadopago'` y `'pretix.plugins.andinaproductores'` en `INSTALLED_APPS` | Cargar nuestros plugins |
 | `src/pretix/presale/views/event.py` | `itemnum` se cuenta antes de quitar los productos con butaca | Que un producto sin butaca no aparezca precargado con cantidad 1 junto al plano |
 | `src/pretix/presale/templates/pretixpresale/event/index.html` | Se pasa `add_to_cart_below` a la señal `render_seating_plan` | Mostrar un solo botón "Agregar al carrito" |
+| `src/pretix/locale/es/LC_MESSAGES/django.po` | Se quitó un `<a` sobrante al final de "impulsado por {name} … basado en pretix" | Error de la traducción de pretix: rompía el pie de página |
 
 ## Remotos de Git
 
@@ -121,13 +122,52 @@ solo al arrancar (`dev-entrypoint.sh`).
 pretix se publica bajo AGPLv3 con términos adicionales (ver `LICENSE`). AndinaTickets
 es un trabajo derivado y hereda esas condiciones:
 
-- Si se usa para vender entradas de terceros o se ofrece como servicio, hay que ofrecer
-  el código fuente completo de AndinaTickets a sus usuarios.
-- El aviso del pie de página no se puede quitar. Se puede reescribir como
-  "powered by AndinaTickets based on pretix, source code available at
-  https://github.com/santiago14-2018/AndinaTickets", con la palabra pretix enlazada a
-  https://pretix.eu/.
+- La excepción del punto 1 de `LICENSE` (no compartir el código) **no nos cubre**: el
+  punto 1(d) excluye a quien usa pretix para vender productos o servicios de terceros, y
+  AndinaTickets vende entradas de productores.
+- Por eso hay que ofrecer el código fuente completo de lo que corre (núcleo modificado y
+  plugins propios) a todos los que usan el sitio: compradores y productores.
+- El aviso del pie de página no se puede quitar. Se reescribe como "impulsado por
+  AndinaTickets · basado en pretix · Código fuente", con pretix enlazado a https://pretix.eu/.
 - No se puede presentar como una distribución oficial de pretix.
 
 Componentes de terceros incluidos en el plugin conservan su licencia (por ejemplo,
 seatmap-canvas: MIT).
+
+La única forma de no compartir el código es una licencia comercial de pretix. La Enterprise
+estándar no permite vender entradas de terceros: para este caso piden una oferta individual
+(https://pretix.eu/about/en/pricing/selfhosted, sales@pretix.eu).
+
+### Qué es público y qué es privado
+
+| Caja | Qué va | Dónde |
+|---|---|---|
+| **Público** (obligatorio) | Núcleo de pretix con nuestros cambios, plugins propios (`andina*`), Docker de desarrollo, pruebas, `ANDINA.md` | Este repositorio (público en GitHub) |
+| **Privado** (permitido) | Contraseñas y credenciales, datos de compradores y ventas, copias de la base, planos reales de salas, configuración del servidor de producción, contratos, precios y comisiones de productores, plan de negocio | Carpeta `privado/` (Git la ignora) o fuera del repo |
+| **Separado** (posible) | Programas propios que hablan con AndinaTickets **solo por la API REST o webhooks**, sin estar adentro (por ejemplo liquidaciones o CRM) | Repositorio privado aparte |
+
+Reglas:
+
+- Si algo nuevo corre **dentro** de AndinaTickets (plugin, plantilla, cambio al núcleo), es público.
+- Las credenciales nunca van en archivos: se cargan en el panel y quedan en la base de datos.
+- Los datos de compradores están protegidos por la Ley 25.326: nunca van a Git ni a la carpeta `privado/`.
+- Antes de cada `git push`, mirar `git status` y `git diff`: lo que se sube a GitHub queda
+  público para siempre, aunque después se borre.
+
+### Verificación de la licencia (en cada instalación)
+
+En *Parametrizaciones globales → Verificación de la licencia* (solo administradores):
+
+| Campo | Valor |
+|---|---|
+| Uso | Vender entradas de otros organizadores (empresa de ticketing) |
+| Cambios | Incluye cambios o extensiones al código fuente |
+| Licencia | AGPLv3 sin restricción de uso (sin el permiso adicional) |
+| Plugins | Marcar solo "creados internamente" (los `andina*`) |
+| Nombre del pie | `AndinaTickets` |
+| Link del nombre | `https://github.com/santiago14-2018/AndinaTickets` (o el sitio de AndinaTickets cuando exista) |
+| Instrucciones del código fuente | Link a este repositorio, a pretix y a `LICENSE` |
+
+Con eso el pie de cada página muestra "impulsado por AndinaTickets · basado en pretix ·
+Código fuente", y "Código fuente" lleva a `/agpl_source`. La pantalla solo deja dos avisos
+amarillos que recuerdan publicar los cambios y los plugins: es lo que hace este repositorio.
