@@ -14,6 +14,7 @@ import json
 from pretix.base.models import SeatingPlan
 
 ROW_LABEL_OFFSET = 40  # distancia del rótulo de la fila a la primera butaca
+TITLE_SPACE = 45       # lugar para el nombre del sector, arriba de su primera fila
 
 
 def seat_name(s):
@@ -25,11 +26,12 @@ def seat_name(s):
     ) if p)
 
 
-def seats_to_blocks(seats, state=None):
+def seats_to_blocks(seats, state=None, titles=False):
     """
     ``seats``: iterable de objetos con zone, row, row_label, number, seat_label, guid, x, y.
     ``state(seat)``: devuelve un dict extra para cada butaca (por ejemplo salable,
     selected o title). Sin ``state``, todas las butacas son seleccionables.
+    ``titles``: agrega el nombre de cada sector arriba de sus butacas (ver ``_add_titles``).
 
     El ``title`` de cada butaca es el texto del cartel que aparece al pasar el mouse
     (un renglón por cada salto de línea); la librería no lo dibuja sobre la butaca.
@@ -63,8 +65,29 @@ def seats_to_blocks(seats, state=None):
             'title': r['title'], 'x': r['x'] - ROW_LABEL_OFFSET, 'y': r['y'],
         })
     out = list(blocks.values())
+    if titles:
+        _add_titles(out)
     _shift_to_origin(out)
     return out
+
+
+def _add_titles(blocks):
+    """
+    seatmap-canvas escribe el nombre del sector en el centro del bloque, debajo de las
+    butacas, y no se lee. Lo agregamos como dos rótulos más arriba de la primera fila: el
+    nombre a la izquierda y uno vacío a la derecha, para que el fondo del bloque (que la
+    librería calcula con butacas y rótulos) haga lugar parejo. El JavaScript del comprador
+    les da estilo. Los sectores de abajo se corren para que no se encimen.
+    """
+    ordered = sorted((b for b in blocks if b['title'] and b['seats']),
+                     key=lambda b: min(s['y'] for s in b['seats']))
+    for i, b in enumerate(ordered):
+        points = b['seats'] + b['labels']
+        for p in points:
+            p['y'] += i * TITLE_SPACE
+        y = min(s['y'] for s in b['seats']) - TITLE_SPACE
+        b['labels'].append({'title': b['title'], 'x': min(p['x'] for p in points), 'y': y})
+        b['labels'].append({'title': '', 'x': max(s['x'] for s in b['seats']), 'y': y})
 
 
 def _shift_to_origin(blocks, margin=20):

@@ -108,6 +108,53 @@
     function initShop(el, map) {
         var form = el.closest('form') || document;
 
+        // seatmap-canvas guarda un color por butaca pero lo ignora al dibujar: pinta todas
+        // con el color global. Le ponemos a cada butaca la clase de color de su producto
+        // (la misma de la leyenda) y seating.css la pinta. La librería dibuja las butacas
+        // después de arrancar y les reescribe el atributo class, así que se repite cada vez
+        // que aparecen butacas o les cambia la clase (paint solo agrega si falta: no hay bucle).
+        var colorOf = {};
+        allSeats(map).forEach(function (s) {
+            var c = s.custom_data && s.custom_data.color;
+            if (c !== null && c !== undefined) {
+                colorOf[s.id] = 'andinaseating-c' + c;
+            }
+        });
+        // Nombres de sector que seatmap.py agrega como rótulos (más uno vacío que solo hace lugar).
+        var sectorNames = {};
+        map.data.getBlocks().forEach(function (b) {
+            if (b.title) {
+                sectorNames[b.title] = true;
+            }
+        });
+        var pending = false;
+        function paint() {
+            pending = false;
+            el.querySelectorAll('g.seat').forEach(function (node) {
+                var cls = colorOf[node.id];
+                if (cls && !node.classList.contains(cls)) {
+                    node.classList.add(cls);
+                }
+            });
+            el.querySelectorAll('g.label').forEach(function (node) {
+                var text = node.querySelector('.label-text');
+                var title = text ? text.textContent : '';
+                var cls = title === '' ? 'andinaseating-label-spacer'
+                    : (sectorNames[title] ? 'andinaseating-label-sector' : null);
+                if (cls && !node.classList.contains(cls)) {
+                    node.classList.add(cls);
+                }
+            });
+        }
+        paint();
+        new MutationObserver(function () {
+            if (!pending) {
+                pending = true;
+                // setTimeout y no requestAnimationFrame: este último se frena con la pestaña oculta.
+                window.setTimeout(paint, 0);
+            }
+        }).observe(el, {childList: true, subtree: true, attributes: true, attributeFilter: ['class']});
+
         function checkboxFor(seat) {
             var field = seat.custom_data && seat.custom_data.field;
             if (!field) {
@@ -147,6 +194,32 @@
                 }
             });
         });
+    }
+
+    /*
+     * Alto de la caja del comprador según la forma de la sala: con el ancho disponible,
+     * el alto que hace falta para que el plano la llene, entre 320 px y el 80 % de la
+     * pantalla. Con un alto fijo, una sala más alta que ancha quedaba chica y con los
+     * costados vacíos. Va antes de crear el plano: la librería toma el tamaño al arrancar.
+     */
+    var FIT_PADDING = 60;  // margen aproximado que deja la librería alrededor del plano
+
+    function fitHeight(el, blocks) {
+        var xs = [];
+        var ys = [];
+        blocks.forEach(function (b) {
+            b.seats.concat(b.labels || []).forEach(function (p) {
+                xs.push(p.x);
+                ys.push(p.y);
+            });
+        });
+        if (!xs.length || !el.clientWidth) {
+            return;
+        }
+        var w = Math.max.apply(null, xs) - Math.min.apply(null, xs) + 2 * FIT_PADDING;
+        var h = Math.max.apply(null, ys) - Math.min.apply(null, ys) + 2 * FIT_PADDING;
+        var max = Math.max(420, window.innerHeight * 0.8);
+        el.style.height = Math.round(Math.min(max, Math.max(320, el.clientWidth * h / w))) + 'px';
     }
 
     /* ---------- generador de sectores (vista previa en vivo) ---------- */
@@ -228,6 +301,7 @@
                 // El plano del comprador está oculto hasta acá; se muestra antes de crearlo
                 // porque la librería toma el tamaño del contenedor al arrancar.
                 box.classList.add('andinaseating-has-map');
+                fitHeight(el, blocks);
             }
             state.map = createMap(el, mode);
             state.map.data.replaceData(blocks);

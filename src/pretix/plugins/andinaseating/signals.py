@@ -144,7 +144,11 @@ def andinaseating_render(sender, request, subevent=None, voucher=None, add_to_ca
             'salable': sellable_now,
             # Cartel al pasar el mouse: un renglón por cada salto de línea.
             'title': seat_name(s) + '\n' + detail,
-            'custom_data': {'row': s.row_label or s.row, 'zone': s.zone or '', 'field': field},
+            'custom_data': {
+                'row': s.row_label or s.row, 'zone': s.zone or '', 'field': field,
+                # El mismo color del producto que en la leyenda y la lista (.andinaseating-cN).
+                'color': products[item.pk]['color'] if item else None,
+            },
         }
 
     # Show the zone name only when it changes, so multi-sector plans read as sections.
@@ -157,7 +161,7 @@ def andinaseating_render(sender, request, subevent=None, voucher=None, add_to_ca
     return get_template('pretixplugins/andinaseating/selector.html').render({
         'event': sender,
         'rows': rows,
-        'blocks': seats_to_blocks(seats, state=lambda s: map_state[s.obj.pk]),
+        'blocks': seats_to_blocks(seats, state=lambda s: map_state[s.obj.pk], titles=True),
         'products': [p for p in products.values() if p['listed']],
         'free_count': free_count,
         'presale_is_running': ev.presale_is_running,

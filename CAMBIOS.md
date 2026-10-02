@@ -24,6 +24,22 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 
 ## 2026-10-02
 
+- [PROPIO] Arreglo: en el plano del comprador todas las butacas libres eran blancas y no se
+  sabía cuál era de Platea y cuál de Pullman. seatmap-canvas guarda un color por butaca pero
+  no lo usa al dibujar; ahora nuestro código le pone la clase de color de su producto y el CSS
+  la pinta de ese color sólido. La leyenda pasó a cuadrados sólidos del mismo color (y gris
+  para "No disponible"). La butaca elegida lleva borde blanco y tilde.
+- [PROPIO] Arreglo: el nombre del sector quedaba tapado por las butacas. Ahora va en blanco
+  arriba de la primera fila, dentro del fondo del sector (`seatmap.py`, `_add_titles`), y se
+  oculta el título original de la librería. Solo en el plano del comprador. Con pruebas
+  (`test_plano.py`).
+- [PROPIO] Plano del comprador más grande: el alto de la caja ya no es fijo (420 px) sino que
+  se calcula con la forma de la sala, entre 320 px y el 80 % de la pantalla
+  (`seatmap-andina.js`, `fitHeight`). Las butacas se ven más grandes y sin costados vacíos.
+- [PROPIO] Datos: en la sala Teatro Andino el Pullman salteaba la fila I (iba de J a M). Se
+  renombró a I–L en la sala y en DEMO – Hamlet, con sus identificadores (`pullman-I-1`…).
+  Las 8 entradas vendidas siguen en el mismo asiento físico, con la letra nueva. Es un
+  cambio en la base de datos, no código; antes se guardó una copia en `privado/copias/`.
 - [PROPIO] `docker-compose.dev.yml`: arreglo de la dirección del sistema (`PRETIX_PRETIX_URL`),
   que quedaba en `http://localhost:8000` aunque el panel está en el 8130. Los links del panel
   ("URL de la tienda") y de los correos apuntaban a un puerto donde no hay nada.
