@@ -10,6 +10,9 @@ Boletería: butacas reservadas para venta presencial y boletos impresos por una 
 - Los boletos impresos se cargan con un CSV (código, fila, butaca). Cada código queda
   como el código de la entrada en pretix, así que en la puerta se escanea el boleto de
   papel igual que una entrada online. La carga usa el importador de pedidos de pretix.
+- Cada carga es de venta (al precio del producto) o de cortesía (regalo, a $0). Una
+  cortesía es simplemente una entrada de precio 0: así la reconocen la boletería y el
+  informe del productor, sin campos extra.
 """
 import csv
 import io
@@ -25,6 +28,8 @@ from pretix.base.services.modelimport import DataImportError, import_orders
 from pretix.base.services.orders import OrderChangeManager, _cancel_order
 
 CHANNEL_IDENTIFIER = 'api.boleteria'
+KIND_SALE = 'venta'
+KIND_COURTESY = 'cortesia'
 
 CSV_COLUMNS = {
     'code': ('codigo', 'código', 'code', 'barcode', 'codigo_barras', 'código de barras'),
@@ -140,17 +145,24 @@ def resolve_tickets(event, subevent, rows, channel):
     return resolved, errors
 
 
-def import_tickets(event, subevent, resolved, user, filename):
+def is_courtesy(position):
+    return position.price == 0
+
+
+def import_tickets(event, subevent, resolved, user, filename, kind=KIND_SALE):
     """
     Crea un pedido pagado en el canal Boletería con una entrada por boleto impreso
     (código = código del boleto) y deja esas butacas reservadas para boletería.
+    Las cortesías se cargan a precio 0.
     """
+    courtesy = kind == KIND_COURTESY
     channel = enable_for_event(event)
     out = io.StringIO()
     writer = csv.writer(out)
-    writer.writerow(['item', 'seat', 'secret', 'subevent'])
+    writer.writerow(['item', 'seat', 'secret', 'subevent', 'price'])
     for code, seat in resolved:
-        writer.writerow([seat.product_id, seat.seat_guid, code, subevent.pk if subevent else ''])
+        writer.writerow([seat.product_id, seat.seat_guid, code, subevent.pk if subevent else '',
+                         '0' if courtesy else ''])
 
     cf = CachedFile.objects.create(expires=now() + timedelta(days=1), date=now(),
                                    filename='import.csv', type='text/csv')
@@ -163,8 +175,10 @@ def import_tickets(event, subevent, resolved, user, filename):
         'seat': 'csv:seat',
         'secret': 'csv:secret',
         'sales_channel': 'static:' + channel.identifier,
-        'comment': 'static:Boletos impresos ({})'.format(filename),
+        'comment': 'static:{} ({})'.format('Cortesías impresas' if courtesy else 'Boletos impresos', filename),
     }
+    if courtesy:
+        settings['price'] = 'csv:price'
     if subevent:
         settings['subevent'] = 'csv:subevent'
     result = import_orders.apply(kwargs={

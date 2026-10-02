@@ -37,6 +37,15 @@ class GeneratorForm(forms.Form):
 
 
 class TicketsUploadForm(forms.Form):
+    kind = forms.ChoiceField(
+        label='Tipo de boletos',
+        choices=(
+            ('venta', 'Venta en boletería (se cobran al precio del producto)'),
+            ('cortesia', 'Cortesía: entradas de regalo, sin cargo ($0)'),
+        ),
+        initial='venta',
+        widget=forms.RadioSelect,
+    )
     file = forms.FileField(
         label='Archivo CSV de boletos',
         help_text='Columnas: "codigo", "fila", "butaca" (opcional: "sector"). Separado por coma o punto y coma.',

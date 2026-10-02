@@ -4,7 +4,8 @@ AndinaTickets es un fork de [pretix](https://pretix.eu/) adaptado para Argentina
 butacas numeradas, salas por sectores, boletería, Mercado Pago y portal de productores.
 
 Este archivo es la guía del fork: qué cambiamos de pretix, dónde vive lo nuestro y
-cómo traer actualizaciones de pretix sin perder nuestro trabajo.
+cómo traer actualizaciones de pretix sin perder nuestro trabajo. La lista de cambios, con
+qué es propio y qué no, está en [CAMBIOS.md](CAMBIOS.md).
 
 ## Dónde vive lo nuestro
 
@@ -29,6 +30,12 @@ Los boletos impresos se cargan como entradas del canal de venta **Boletería**
 (`api.boleteria`), con el código del boleto como código de la entrada. En la puerta se
 escanean igual que una entrada online (pretixSCAN o check-in web).
 
+Cada carga es de **venta** (al precio del producto) o de **cortesía** (regalo, a $0). Una
+cortesía es simplemente una entrada de precio 0, sin campos extra: así la reconocen la
+Boletería y el portal del productor. Las cortesías digitales se hacen con los vales de pretix
+(precio fijado en 0); el plano de butacas muestra el precio del vale y solo los productos a
+los que se aplica.
+
 ### Plugin andinamercadopago
 
 - Modelo: todo el dinero entra a una sola cuenta de Mercado Pago (la de la plataforma).
@@ -45,8 +52,13 @@ escanean igual que una entrada online (pretixSCAN o check-in web).
 ### Pruebas automáticas
 
 ```bash
-docker exec -e PRETIX_DATABASE_BACKEND=sqlite3 -e PRETIX_DATABASE_NAME= andina-tickets-web-1   sh -c 'cd /pretix/src && python3 -m pytest --ds=tests.settings tests/plugins/andinamercadopago -p no:cacheprovider'
+docker exec -e PRETIX_DATABASE_BACKEND=sqlite3 -e PRETIX_DATABASE_NAME= andina-tickets-web-1   sh -c 'cd /pretix/src && python3 -m pytest --ds=tests.settings tests/plugins/andinamercadopago tests/plugins/andinaseating -p no:cacheprovider'
 ```
+
+- `tests/plugins/andinamercadopago`: cobro, avisos y devoluciones de Mercado Pago.
+- `tests/plugins/andinaseating`: boletería (venta y cortesía), canje de vales con plano e
+  informe del productor. `andinaseating` es HYBRID: en las pruebas hay que activarlo en el
+  organizador y en el evento (ver `conftest.py`).
 
 - `--ds=tests.settings` es obligatorio: el contenedor define `DJANGO_SETTINGS_MODULE=pretix.settings`
   y pytest le da prioridad sobre `setup.cfg`.
@@ -144,7 +156,9 @@ estándar no permite vender entradas de terceros: para este caso piden una ofert
 |---|---|---|
 | **Público** (obligatorio) | Núcleo de pretix con nuestros cambios, plugins propios (`andina*`), Docker de desarrollo, pruebas, `ANDINA.md` | Este repositorio (público en GitHub) |
 | **Privado** (permitido) | Contraseñas y credenciales, datos de compradores y ventas, copias de la base, planos reales de salas, configuración del servidor de producción, contratos, precios y comisiones de productores, plan de negocio | Carpeta `privado/` (Git la ignora) o fuera del repo |
-| **Separado** (posible) | Programas propios que hablan con AndinaTickets **solo por la API REST o webhooks**, sin estar adentro (por ejemplo liquidaciones o CRM) | Repositorio privado aparte |
+
+Decisión: todo el desarrollo de AndinaTickets va en este repositorio público, cumpliendo la
+licencia. No se arman programas privados aparte.
 
 Reglas:
 

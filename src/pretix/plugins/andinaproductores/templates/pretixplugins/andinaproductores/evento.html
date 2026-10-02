@@ -85,9 +85,16 @@
             <div class="panel panel-default">
                 <div class="panel-heading"><h3 class="panel-title">Boletería</h3></div>
                 <div class="panel-body">
-                    Boletos impresos cargados: <strong>{{ report.box_count }}</strong>
+                    Boletos impresos para la venta: <strong>{{ report.box_count }}</strong>
                     (valor nominal {{ report.box_value|money:report.currency }}). Ese dinero se cobra en el teatro
                     y no forma parte de esta liquidación.
+                </div>
+            </div>
+            <div class="panel panel-default">
+                <div class="panel-heading"><h3 class="panel-title">Cortesías</h3></div>
+                <div class="panel-body">
+                    Entradas de regalo, sin cargo: <strong>{{ report.courtesy_online }}</strong> online (vales) y
+                    <strong>{{ report.courtesy_box }}</strong> impresas en boletería. No se cobran ni pagan comisión.
                 </div>
             </div>
         </div>

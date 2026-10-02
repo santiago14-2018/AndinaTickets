@@ -12,6 +12,8 @@ Criterios:
   solo sobre eso.
 - Los boletos impresos de boletería (canal api.boleteria) se informan aparte: ese dinero
   lo cobra el teatro en persona, no la plataforma.
+- Las cortesías (entradas a $0: vales de regalo online o boletos de cortesía impresos) no
+  cuentan como vendidas; se informa solo la cantidad.
 """
 import io
 from decimal import ROUND_HALF_UP, Decimal
@@ -42,8 +44,12 @@ def build_report(event, subevent=None):
     )
     if subevent:
         base = base.filter(subevent=subevent)
-    online = base.exclude(order__sales_channel__identifier=BOLETERIA_CHANNEL)
-    box = base.filter(order__sales_channel__identifier=BOLETERIA_CHANNEL)
+    online_all = base.exclude(order__sales_channel__identifier=BOLETERIA_CHANNEL)
+    box_all = base.filter(order__sales_channel__identifier=BOLETERIA_CHANNEL)
+    online = online_all.exclude(price=0)
+    box = box_all.exclude(price=0)
+    # Los agregados incluidos en un paquete también valen $0, pero no son cortesías.
+    courtesy = base.filter(price=0, addon_to__isnull=True)
 
     names = {i.pk: str(i.name) for i in event.items.all()}
     by_product = [
@@ -86,6 +92,8 @@ def build_report(event, subevent=None):
         'by_day': by_day,
         'box_count': box_stats['n'] or 0,
         'box_value': box_stats['total'] or Decimal('0'),
+        'courtesy_online': courtesy.exclude(order__sales_channel__identifier=BOLETERIA_CHANNEL).count(),
+        'courtesy_box': courtesy.filter(order__sales_channel__identifier=BOLETERIA_CHANNEL).count(),
         'generated': now(),
     }
 
@@ -163,9 +171,13 @@ def render_pdf(report, producer_name=''):
             [90 * mm, 30 * mm, 40 * mm]), Spacer(1, 6 * mm)]
     story += [
         Paragraph('Boletería', styles['Heading3']),
-        Paragraph('Boletos impresos cargados: {} (valor nominal {}). Ese dinero se cobra en el teatro y no forma '
+        Paragraph('Boletos impresos para la venta: {} (valor nominal {}). Ese dinero se cobra en el teatro y no forma '
                   'parte de esta liquidación.'.format(report['box_count'], money(report['box_value'])),
                   styles['Normal']),
+        Spacer(1, 6 * mm),
+        Paragraph('Cortesías', styles['Heading3']),
+        Paragraph('Entradas de regalo, sin cargo: {} online (vales) y {} impresas en boletería. No se cobran ni '
+                  'pagan comisión.'.format(report['courtesy_online'], report['courtesy_box']), styles['Normal']),
         Spacer(1, 6 * mm),
         Paragraph('Incluye entradas de pedidos pagados y no anulados. No incluye pedidos de prueba.', styles['Italic']),
     ]

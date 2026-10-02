@@ -16,8 +16,9 @@ from pretix.base.services.orders import OrderError
 from pretix.control.permissions import EventPermissionRequiredMixin
 
 from .boleteria import (
-    CHANNEL_IDENTIFIER, boleteria_positions, cancel_ticket, enable_for_event,
-    import_tickets, parse_tickets_csv, resolve_tickets,
+    CHANNEL_IDENTIFIER, KIND_COURTESY, boleteria_positions, cancel_ticket,
+    enable_for_event, import_tickets, is_courtesy, parse_tickets_csv,
+    resolve_tickets,
 )
 from .forms import TicketsUploadForm
 from .seatmap import event_seats, seats_to_blocks
@@ -99,6 +100,7 @@ class BoleteriaView(EventPermissionRequiredMixin, TemplateView):
                 'online': target.free_seats(sales_channel='web').count(),
                 'reserved': sum(1 for s in seats if s.obj.blocked and s.obj.pk in free),
                 'tickets': sum(1 for p in positions if not p.canceled),
+                'courtesies': sum(1 for p in positions if not p.canceled and is_courtesy(p)),
             },
         })
         return ctx
@@ -137,6 +139,7 @@ class BoleteriaView(EventPermissionRequiredMixin, TemplateView):
         if not form.is_valid():
             return self.render_to_response(self.get_context_data(form=form))
         f = form.cleaned_data['file']
+        kind = form.cleaned_data['kind']
         event = self.request.event
         try:
             rows = parse_tickets_csv(f.read())
@@ -145,11 +148,15 @@ class BoleteriaView(EventPermissionRequiredMixin, TemplateView):
             if errors:
                 return self.render_to_response(self.get_context_data(form=form, errors=errors))
             with transaction.atomic():
-                n = import_tickets(event, self.subevent, resolved, self.request.user, f.name)
+                n = import_tickets(event, self.subevent, resolved, self.request.user, f.name, kind=kind)
         except ValidationError as e:
             return self.render_to_response(self.get_context_data(form=form, errors=e.messages))
-        messages.success(self.request, 'Se cargaron {} boleto{} impreso{}.'.format(
-            n, '' if n == 1 else 's', '' if n == 1 else 's'))
+        if kind == KIND_COURTESY:
+            msg = 'Se cargaron {} cortesía{} (sin cargo).'.format(n, '' if n == 1 else 's')
+        else:
+            msg = 'Se cargaron {} boleto{} impreso{} para la venta.'.format(
+                n, '' if n == 1 else 's', '' if n == 1 else 's')
+        messages.success(self.request, msg)
         return redirect(self.url())
 
     def post_cancel(self):

@@ -50,6 +50,7 @@
             </div></div></div>
             <div class="col-sm-3 col-xs-6"><div class="panel panel-default"><div class="panel-body text-center">
                 <div class="h2">{{ stats.tickets }}</div>boletos cargados
+                {% if stats.courtesies %}<div class="small text-muted">{{ stats.courtesies }} de cortesía</div>{% endif %}
             </div></div></div>
         </div>
 
@@ -100,7 +101,9 @@
                     <code>0001234568;J;2</code><br>
                     El código tiene que ser exactamente lo que lee el escáner en el boleto (número o código de
                     barras). Las butacas cargadas quedan reservadas para boletería. Si algo está mal, no se carga
-                    ningún boleto y te mostramos qué corregir.
+                    ningún boleto y te mostramos qué corregir.<br>
+                    Las ventas y las cortesías se cargan en archivos separados: un archivo para los boletos que
+                    se venden y otro para los de regalo.
                 </div>
             </div>
             <div class="panel-footer text-right">
@@ -118,6 +121,7 @@
                             <th>Código</th>
                             <th>Butaca</th>
                             <th>Producto</th>
+                            <th>Tipo</th>
                             <th>Estado</th>
                             <th>Pedido</th>
                             <th></th>
@@ -129,6 +133,7 @@
                                 <td><code>{{ p.secret }}</code></td>
                                 <td>{{ p.seat }}</td>
                                 <td>{{ p.item.name }}</td>
+                                <td>{% if p.price == 0 %}<span class="label label-info">Cortesía</span>{% else %}Venta{% endif %}</td>
                                 <td>
                                     {% if p.canceled %}Anulado
                                     {% elif p.checkins.all %}<span class="text-success"><span class="fa fa-check"></span> Ingresó</span>

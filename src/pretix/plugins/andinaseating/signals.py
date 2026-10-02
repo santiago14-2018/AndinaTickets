@@ -80,6 +80,8 @@ def _is_sellable(item, voucher):
         return False
     if (item.require_voucher or item.hide_without_voucher) and not voucher:
         return False
+    if voucher and not voucher.applies_to(item):
+        return False
     return True
 
 
@@ -114,9 +116,12 @@ def andinaseating_render(sender, request, subevent=None, voucher=None, add_to_ca
         item = seat.product
         free = _is_sellable(item, voucher) and seat.pk in free_ids
         if item and item.pk not in products:
+            price = price_overrides.get(item.pk, item.default_price)
             products[item.pk] = {
                 'item': item,
-                'price': price_overrides.get(item.pk, item.default_price),
+                # Con un vale se muestra el precio del vale (por ejemplo $0 en una cortesía).
+                'price': voucher.calculate_price(price) if voucher else price,
+                'listed': not voucher or voucher.applies_to(item),
                 'color': len(products) % PRODUCT_COLORS,
                 'free': 0,
             }
@@ -153,7 +158,7 @@ def andinaseating_render(sender, request, subevent=None, voucher=None, add_to_ca
         'event': sender,
         'rows': rows,
         'blocks': seats_to_blocks(seats, state=lambda s: map_state[s.obj.pk]),
-        'products': list(products.values()),
+        'products': [p for p in products.values() if p['listed']],
         'free_count': free_count,
         'presale_is_running': ev.presale_is_running,
         # On the shop front page the core renders its own "Add to cart" button below the
