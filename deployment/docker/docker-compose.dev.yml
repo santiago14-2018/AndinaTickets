@@ -69,6 +69,9 @@ services:
       # Idioma y zona horaria por defecto (sección [locale] de pretix.cfg)
       PRETIX_LOCALE_DEFAULT: es
       PRETIX_LOCALE_TIMEZONE: America/Argentina/Buenos_Aires
+      # Dirección pública del sistema (sección [pretix] url): con ella se arman los
+      # links del panel y de los correos. Tiene que coincidir con el puerto de afuera.
+      PRETIX_PRETIX_URL: http://localhost:8130
       DATA_DIR: /data
     volumes:
       - ../../src:/pretix/src
@@ -109,6 +112,7 @@ services:
       PRETIX_MAIL_PORT: "1025"
       PRETIX_LOCALE_DEFAULT: es
       PRETIX_LOCALE_TIMEZONE: America/Argentina/Buenos_Aires
+      PRETIX_PRETIX_URL: http://localhost:8130
       DATA_DIR: /data
     volumes:
       - ../../src:/pretix/src

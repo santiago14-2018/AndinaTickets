@@ -24,6 +24,9 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 
 ## 2026-10-02
 
+- [PROPIO] `docker-compose.dev.yml`: arreglo de la dirección del sistema (`PRETIX_PRETIX_URL`),
+  que quedaba en `http://localhost:8000` aunque el panel está en el 8130. Los links del panel
+  ("URL de la tienda") y de los correos apuntaban a un puerto donde no hay nada.
 - [PROPIO] `INSTALAR.md`: guía para instalar el entorno en otra PC con Windows, pasarle los
   datos (copia de la base y de la clave secreta) y trabajar por escritorio remoto.
 - [PROPIO] `docker-compose.dev.yml`: el comentario decía puerto 8124; el real es 8130.
