@@ -157,9 +157,12 @@ estándar no permite vender entradas de terceros: para este caso piden una ofert
 |---|---|---|
 | **Público** (obligatorio) | Núcleo de pretix con nuestros cambios, plugins propios (`andina*`), Docker de desarrollo, pruebas, `ANDINA.md` | Este repositorio (público en GitHub) |
 | **Privado** (permitido) | Contraseñas y credenciales, datos de compradores y ventas, copias de la base, planos reales de salas, configuración del servidor de producción, contratos, precios y comisiones de productores, plan de negocio | Carpeta `privado/` (Git la ignora) o fuera del repo |
+| **Programas aparte** (permitido, cerrado) | Programas separados que solo hablan con AndinaTickets por la API y los webhooks de pretix (ver "Caja 3") | Otro repositorio, privado |
 
-Decisión: todo el desarrollo de AndinaTickets va en este repositorio público, cumpliendo la
-licencia. No se arman programas privados aparte.
+Decisión (03/10/2026): todo lo que corre dentro de AndinaTickets va en este repositorio
+público, cumpliendo la licencia. Lo que nos diferencia a futuro puede ir en programas
+privados aparte (caja 3), si cumplen sus reglas. Hasta el 02/10/2026 la decisión era no
+armarlos.
 
 Reglas:
 
@@ -168,6 +171,33 @@ Reglas:
 - Los datos de compradores están protegidos por la Ley 25.326: nunca van a Git ni a la carpeta `privado/`.
 - Antes de cada `git push`, mirar `git status` y `git diff`: lo que se sube a GitHub queda
   público para siempre, aunque después se borre.
+
+### Caja 3: programas privados aparte
+
+Un código de activación en los plugins no protege nada: el código es público y la AGPL
+permite quitarlo (y prohíbe sumar restricciones). Lo que sí puede ser cerrado es un programa
+**separado** que use AndinaTickets desde afuera, como cualquier otro sistema.
+
+Reglas para que un programa sea de la caja 3:
+
+- Vive en **otro repositorio, privado**. Nunca en este.
+- Corre como un programa aparte (otro contenedor o servidor), no adentro de pretix.
+- Habla con AndinaTickets **solo** por la API REST y los webhooks (avisos automáticos de
+  pretix: pedido creado, pagado, cancelado, devolución, ingreso en puerta, etc.).
+- No importa ni copia código de pretix ni de los plugins `andina*`.
+- Si algo tiene que aparecer dentro de la tienda o del panel (un botón, un link), esa parte
+  va en un plugin público y se mantiene chica; la "inteligencia" queda afuera.
+- Si saca datos de compradores fuera de pretix, rige la Ley 25.326: consentimiento para
+  marketing (casilla en la compra), base protegida y registrada, y forma de darse de baja.
+- No duplicar lo que pretix ya trae libre: lista de espera, widget para webs de productores,
+  app de control de acceso (pretixSCAN) y exportaciones básicas.
+
+La lista de ideas y el orden en que se piensan hacer son plan de negocio (caja 2): están en
+`privado/PlanDeNegocios.md`, que no se sube a Git.
+
+Otras protecciones que no son código: registrar la marca AndinaTickets en el INPI (la AGPL
+no da derecho a usar el nombre) y, si se quiere cerrar los plugins actuales, pedirle una
+licencia comercial a pretix (sales@pretix.eu).
 
 ### Verificación de la licencia (en cada instalación)
 

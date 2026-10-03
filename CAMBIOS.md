@@ -22,6 +22,12 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 
 ---
 
+## 2026-10-03
+
+- [PROPIO] `ANDINA.md`: nueva "caja 3" (programas privados aparte que usan solo la API y los
+  webhooks de pretix), con sus reglas. Cambia la decisión del 02/10 de no armar programas
+  aparte. La lista de ideas es plan de negocio y queda en `privado/`.
+
 ## 2026-10-02
 
 - [PROPIO] Arreglo: en el plano del comprador todas las butacas libres eran blancas y no se
