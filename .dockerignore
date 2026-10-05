@@ -8,4 +8,6 @@ pretixeu/
 src/data/
 src/pretix/static.dist/
 src/dist/
+# AndinaTickets: lo privado (copias de la base, documentos) no se manda al armar la imagen
+privado/
 

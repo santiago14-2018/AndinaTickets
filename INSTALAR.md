@@ -81,8 +81,7 @@ Desde la otra PC, con un pendrive o una carpeta compartida, copiá:
 
 | Qué | De dónde | A dónde |
 |---|---|---|
-| Carpeta `privado` (planos reales, copias de la base) | `D:\Ticketing\AndinaTickets\privado` | La misma ruta |
-| Documentos Word | `D:\Ticketing\*.docx` | `D:\Ticketing` |
+| Carpeta `privado` (planos reales, copias de la base, plan de negocios, documentación en Word) | `D:\Ticketing\AndinaTickets\privado` | La misma ruta |
 | Notas de Claude (opcional) | `C:\Users\<usuario>\.claude\projects\D--Ticketing-AndinaTickets` | La misma ruta |
 
 La copia de la base tiene datos de compradores y la clave secreta del sistema: no la subas
