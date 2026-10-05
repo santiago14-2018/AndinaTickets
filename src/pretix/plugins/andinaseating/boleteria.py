@@ -13,9 +13,12 @@ Boletería: butacas reservadas para venta presencial y boletos impresos por una 
 - Cada carga es de venta (al precio del producto) o de cortesía (regalo, a $0). Una
   cortesía es simplemente una entrada de precio 0: así la reconocen la boletería y el
   informe del productor, sin campos extra.
+- También se pueden generar los boletos al revés: AndinaTickets crea los códigos y arma
+  el paquete para la imprenta (ver imprenta.py). Sirve para eventos con y sin numerar.
 """
 import csv
 import io
+import secrets
 from datetime import timedelta
 
 from django.core.exceptions import ValidationError
@@ -23,13 +26,16 @@ from django.core.files.base import ContentFile
 from django.utils.timezone import now
 from i18nfield.strings import LazyI18nString
 
-from pretix.base.models import CachedFile, OrderPosition
+from pretix.base.models import CachedFile, Order, OrderPosition
 from pretix.base.services.modelimport import DataImportError, import_orders
 from pretix.base.services.orders import OrderChangeManager, _cancel_order
 
 CHANNEL_IDENTIFIER = 'api.boleteria'
+COURTESY_CHANNEL = 'api.cortesias'  # cortesías por email (cortesias.py)
 KIND_SALE = 'venta'
 KIND_COURTESY = 'cortesia'
+MAX_GENERATE = 500  # boletos por generación
+GENERATED_COMMENT = 'Boletos generados para la imprenta'
 
 CSV_COLUMNS = {
     'code': ('codigo', 'código', 'code', 'barcode', 'codigo_barras', 'código de barras'),
@@ -39,17 +45,26 @@ CSV_COLUMNS = {
 }
 
 
-def get_channel(organizer):
+CHANNEL_LABELS = {
+    CHANNEL_IDENTIFIER: {'es': 'Boletería', 'en': 'Box office'},
+    COURTESY_CHANNEL: {'es': 'Cortesías', 'en': 'Complimentary tickets'},
+}
+
+
+def get_channel(organizer, identifier=CHANNEL_IDENTIFIER):
     channel, _ = organizer.sales_channels.get_or_create(
-        identifier=CHANNEL_IDENTIFIER,
-        defaults={'type': 'api', 'label': LazyI18nString({'es': 'Boletería', 'en': 'Box office'})},
+        identifier=identifier,
+        defaults={'type': 'api', 'label': LazyI18nString(CHANNEL_LABELS[identifier])},
     )
     return channel
 
 
-def enable_for_event(event):
-    """Crea el canal si hace falta y le permite vender butacas bloqueadas en este evento."""
-    channel = get_channel(event.organizer)
+def enable_for_event(event, identifier=CHANNEL_IDENTIFIER):
+    """
+    Crea el canal si hace falta y le permite usar butacas bloqueadas en este evento (las
+    reservadas para boletería también se pueden dar de cortesía).
+    """
+    channel = get_channel(event.organizer, identifier)
     allowed = list(event.settings.seating_allow_blocked_seats_for_channel or [])
     if channel.identifier not in allowed:
         event.settings.seating_allow_blocked_seats_for_channel = allowed + [channel.identifier]
@@ -149,20 +164,22 @@ def is_courtesy(position):
     return position.price == 0
 
 
-def import_tickets(event, subevent, resolved, user, filename, kind=KIND_SALE):
+def run_import(event, subevent, user, channel, rows, comment, courtesy=False, email=''):
     """
-    Crea un pedido pagado en el canal Boletería con una entrada por boleto impreso
-    (código = código del boleto) y deja esas butacas reservadas para boletería.
-    Las cortesías se cargan a precio 0.
+    Crea UN pedido pagado con el importador de pedidos de pretix (que valida producto, butaca
+    y código). ``rows``: dicts con item (pk), y opcionales seat (seat_guid) y secret; sin
+    secret, pretix genera el código. Las cortesías van a precio 0. El comentario lleva un
+    número de lote único: con él se encuentra el pedido creado (el importador no lo devuelve).
     """
-    courtesy = kind == KIND_COURTESY
-    channel = enable_for_event(event)
+    lote = secrets.token_hex(4).upper()
+    comment = '{} · lote {}'.format(comment, lote)
+    cols = ['item', 'seat', 'secret', 'subevent', 'price', 'email']
     out = io.StringIO()
     writer = csv.writer(out)
-    writer.writerow(['item', 'seat', 'secret', 'subevent', 'price'])
-    for code, seat in resolved:
-        writer.writerow([seat.product_id, seat.seat_guid, code, subevent.pk if subevent else '',
-                         '0' if courtesy else ''])
+    writer.writerow(cols)
+    for r in rows:
+        writer.writerow([r['item'], r.get('seat', ''), r.get('secret', ''), subevent.pk if subevent else '',
+                         '0' if courtesy else '', email])
 
     cf = CachedFile.objects.create(expires=now() + timedelta(days=1), date=now(),
                                    filename='import.csv', type='text/csv')
@@ -172,15 +189,19 @@ def import_tickets(event, subevent, resolved, user, filename, kind=KIND_SALE):
         'status': 'paid',
         'testmode': event.testmode,
         'item': 'csv:item',
-        'seat': 'csv:seat',
-        'secret': 'csv:secret',
         'sales_channel': 'static:' + channel.identifier,
-        'comment': 'static:{} ({})'.format('Cortesías impresas' if courtesy else 'Boletos impresos', filename),
+        'comment': 'static:' + comment,
     }
+    if any(r.get('seat') for r in rows):
+        settings['seat'] = 'csv:seat'
+    if any(r.get('secret') for r in rows):
+        settings['secret'] = 'csv:secret'
     if courtesy:
         settings['price'] = 'csv:price'
     if subevent:
         settings['subevent'] = 'csv:subevent'
+    if email:
+        settings['email'] = 'csv:email'
     result = import_orders.apply(kwargs={
         'event': event.pk, 'fileid': str(cf.id), 'settings': settings, 'locale': 'es', 'user': user.pk,
         'charset': 'utf-8',
@@ -190,9 +211,92 @@ def import_tickets(event, subevent, resolved, user, filename, kind=KIND_SALE):
         if isinstance(exc, (DataImportError, ValidationError)):
             raise ValidationError(str(exc))
         raise exc
+    return Order.objects.get(event=event, sales_channel=channel, comment=comment)
 
+
+def import_tickets(event, subevent, resolved, user, filename, kind=KIND_SALE):
+    """
+    Crea un pedido pagado en el canal Boletería con una entrada por boleto impreso
+    (código = código del boleto) y deja esas butacas reservadas para boletería.
+    Las cortesías se cargan a precio 0.
+    """
+    courtesy = kind == KIND_COURTESY
+    channel = enable_for_event(event)
+    rows = [{'item': seat.product_id, 'seat': seat.seat_guid, 'secret': code} for code, seat in resolved]
+    run_import(event, subevent, user, channel, rows,
+               '{} ({})'.format('Cortesías impresas' if courtesy else 'Boletos impresos', filename),
+               courtesy=courtesy)
     (subevent or event).seats.filter(pk__in=[s.pk for _, s in resolved]).update(blocked=True)
     return len(resolved)
+
+
+# ---------------------------------------------------------------- elegir butacas o cantidad
+
+def seats_by_guid(target, guids, channel):
+    """Butacas elegidas en el plano, libres para ``channel``. Devuelve ([Seat], [errores])."""
+    guids = [g for g in dict.fromkeys(guids) if g]
+    if not guids:
+        return [], ['Elegí al menos una butaca en el plano.']
+    if len(guids) > MAX_GENERATE:
+        return [], ['Son demasiadas butacas juntas (máximo {}).'.format(MAX_GENERATE)]
+    seats = {s.seat_guid: s for s in target.seats.filter(seat_guid__in=guids).select_related('product')}
+    free = set(target.free_seats(sales_channel=channel.identifier).values_list('pk', flat=True))
+    out, errors = [], []
+    for g in guids:
+        seat = seats.get(g)
+        if not seat:
+            errors.append('La butaca {} no existe en esta sala.'.format(g))
+        elif not seat.product:
+            errors.append('La butaca {} no tiene producto (revisá Plan de butacas).'.format(seat))
+        elif seat.pk not in free:
+            errors.append('La butaca {} ya está vendida o reservada.'.format(seat))
+        else:
+            out.append(seat)
+    return out, errors
+
+
+def unnumbered_items(event):
+    """Productos que se pueden entregar por cantidad (sin butaca)."""
+    return event.items.filter(active=True, admission=True, variations__isnull=True).order_by('position', 'pk')
+
+
+def check_quota(item, subevent, quantity):
+    """Error si no quedan ``quantity`` lugares en los cupos del producto (el importador no los mira)."""
+    _avail, num = item.check_quotas(subevent=subevent, count_waitinglist=False)
+    if num is None or num >= quantity:  # None = sin límite
+        return None
+    if not item.quotas.filter(subevent=subevent).exists():
+        return '"{}" no tiene cupo{}: creale uno en Cuotas.'.format(item.name, ' en esta fecha' if subevent else '')
+    return 'De "{}" quedan {} lugar{}; pediste {}.'.format(item.name, num, '' if num == 1 else 'es', quantity)
+
+
+def rows_for(seats=None, item=None, quantity=0):
+    if seats:
+        return [{'item': s.product_id, 'seat': s.seat_guid} for s in seats]
+    return [{'item': item.pk} for _ in range(quantity)]
+
+
+def generate_tickets(event, subevent, user, kind, seats=None, item=None, quantity=0):
+    """
+    AndinaTickets crea los códigos de boletos que va a imprimir la imprenta (canal Boletería):
+    con butacas elegidas en el plano o, sin numerar, una cantidad de un producto. Las butacas
+    quedan reservadas para boletería, igual que al cargar boletos de la imprenta. Devuelve el
+    pedido creado; su paquete para la imprenta lo arma imprenta.printer_package.
+    """
+    courtesy = kind == KIND_COURTESY
+    channel = enable_for_event(event)
+    comment = '{} ({})'.format(GENERATED_COMMENT, 'cortesías' if courtesy else 'venta')
+    order = run_import(event, subevent, user, channel, rows_for(seats, item, quantity), comment, courtesy=courtesy)
+    if seats:
+        (subevent or event).seats.filter(pk__in=[s.pk for s in seats]).update(blocked=True)
+    return order
+
+
+def generated_orders(event, subevent):
+    return Order.objects.filter(
+        event=event, sales_channel__identifier=CHANNEL_IDENTIFIER, comment__startswith=GENERATED_COMMENT,
+        all_positions__subevent=subevent,
+    ).distinct().order_by('-datetime')
 
 
 def cancel_ticket(position, user):

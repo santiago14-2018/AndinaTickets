@@ -54,3 +54,21 @@ def env(db):
         team.members.add(user)
         team.limit_events.add(event)
         yield event, platea, user
+
+
+@pytest.fixture
+def env_general(env):
+    """
+    Evento sin numerar del mismo organizador: "General" ($12.000) con un cupo de 3.
+    Devuelve (evento, producto General, usuario con acceso).
+    """
+    event, _platea, user = env
+    with scopes_disabled():
+        general = Event.objects.create(
+            organizer=event.organizer, name='Stand-up', slug='standup', currency='ARS',
+            date_from=now() + timedelta(days=12), plugins=event.plugins, live=True,
+        )
+        item = general.items.create(name='General', default_price=Decimal('12000.00'), admission=True)
+        general.quotas.create(name='Salón', size=3).items.add(item)
+        user.teams.first().limit_events.add(general)
+        yield general, item, user

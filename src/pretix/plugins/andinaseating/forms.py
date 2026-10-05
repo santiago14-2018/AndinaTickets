@@ -60,6 +60,56 @@ class TicketsUploadForm(forms.Form):
         return f
 
 
+class PickForm(forms.Form):
+    """
+    Qué entregar: butacas elegidas en el plano (``seats``, guids separados por coma) o, en un
+    evento sin numerar, un producto y una cantidad. ``numbered`` lo decide la vista.
+    """
+    seats = forms.CharField(required=False, widget=forms.HiddenInput)
+    item = forms.ModelChoiceField(label='Producto', queryset=None, required=False)
+    quantity = forms.IntegerField(label='Cantidad', min_value=1, max_value=500, initial=1, required=False)
+
+    def __init__(self, *args, numbered=True, items=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.numbered = numbered
+        self.fields['item'].queryset = items
+        if numbered:
+            del self.fields['item']
+            del self.fields['quantity']
+
+    def clean(self):
+        d = super().clean()
+        if self.numbered:
+            d['guids'] = [g for g in (d.get('seats') or '').split(',') if g]
+            if not d['guids']:
+                raise forms.ValidationError('Elegí al menos una butaca en el plano.')
+        else:
+            if not d.get('item'):
+                self.add_error('item', 'Elegí un producto.')
+            if not d.get('quantity'):
+                self.add_error('quantity', 'Indicá cuántas.')
+        return d
+
+
+class GenerateForm(PickForm):
+    kind = forms.ChoiceField(
+        label='Tipo de boletos',
+        choices=TicketsUploadForm.base_fields['kind'].choices,
+        initial='cortesia',
+        widget=forms.RadioSelect,
+    )
+    field_order = ['kind', 'item', 'quantity', 'seats']
+
+
+class CourtesyForm(PickForm):
+    name = forms.CharField(label='Nombre del invitado', max_length=200,
+                           widget=forms.TextInput(attrs={'placeholder': 'Laura Gómez'}))
+    email = forms.EmailField(label='Email', required=False,
+                             help_text='Ahí le llegan las entradas con el código QR. Vacío = queda en la lista '
+                                       'de invitados (en la puerta se lo busca por nombre).')
+    field_order = ['name', 'email', 'item', 'quantity', 'seats']
+
+
 class SectorUploadForm(forms.Form):
     name = forms.CharField(
         label='Nombre del sector', max_length=190,

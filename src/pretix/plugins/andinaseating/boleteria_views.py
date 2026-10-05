@@ -5,32 +5,32 @@
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.functional import cached_property
+from django.utils.html import format_html
+from django.views import View
 from django.views.generic import TemplateView
 
-from pretix.base.models import OrderPosition, Seat
+from pretix.base.models import Order, OrderPosition, Seat
 from pretix.base.services.orders import OrderError
 from pretix.control.permissions import EventPermissionRequiredMixin
 
 from .boleteria import (
-    CHANNEL_IDENTIFIER, KIND_COURTESY, boleteria_positions, cancel_ticket,
-    enable_for_event, import_tickets, is_courtesy, parse_tickets_csv,
-    resolve_tickets,
+    CHANNEL_IDENTIFIER, GENERATED_COMMENT, KIND_COURTESY, boleteria_positions,
+    cancel_ticket, check_quota, enable_for_event, generate_tickets,
+    generated_orders, import_tickets, is_courtesy, parse_tickets_csv,
+    resolve_tickets, seats_by_guid, unnumbered_items,
 )
-from .forms import TicketsUploadForm
+from .forms import GenerateForm, TicketsUploadForm
+from .imprenta import printer_package
 from .seatmap import event_seats, seats_to_blocks
 
 
-class BoleteriaView(EventPermissionRequiredMixin, TemplateView):
-    """
-    Reservar butacas para venta presencial y cargar boletos impresos por una imprenta.
-    En una serie se trabaja fecha por fecha (?fecha=<id>).
-    """
-    permission = 'event.orders:write'
-    template_name = 'pretixplugins/andinaseating/boleteria.html'
+class EventDateMixin:
+    """Pantallas de evento que en una serie trabajan fecha por fecha (?fecha=<id>)."""
+    url_name = None
 
     @cached_property
     def subevent(self):
@@ -50,31 +50,96 @@ class BoleteriaView(EventPermissionRequiredMixin, TemplateView):
     def target(self):
         return self.subevent or self.request.event
 
-    def url(self):
-        url = reverse('plugins:andinaseating:boleteria', kwargs={
+    @property
+    def has_plan(self):
+        return bool(self.target and self.target.seating_plan_id)
+
+    def url(self, name=None):
+        url = reverse('plugins:andinaseating:' + (name or self.url_name), kwargs={
             'organizer': self.request.organizer.slug, 'event': self.request.event.slug,
         })
         return url + ('?fecha={}'.format(self.subevent.pk) if self.subevent else '')
+
+    def date_context(self):
+        event = self.request.event
+        return {
+            'series': event.has_subevents,
+            'subevent': self.subevent,
+            'subevents': event.subevents.order_by('date_from', 'pk') if event.has_subevents else [],
+            'has_plan': self.has_plan,
+            'plan_url': reverse('plugins:andinaseating:event', kwargs={
+                'organizer': event.organizer.slug, 'event': event.slug,
+            }),
+        }
+
+    def pick_blocks(self, channel_identifier, form=None):
+        """Plano para elegir butacas libres para el canal (marcadas las del formulario, si volvió con error)."""
+        free = set(self.target.free_seats(sales_channel=channel_identifier).values_list('pk', flat=True))
+        chosen = set((form.data.get('seats') or '').split(',')) if form is not None and form.is_bound else set()
+        seats = event_seats(self.target.seats.all())
+        return seats_to_blocks(seats, state=lambda s: {
+            'salable': s.obj.pk in free, 'selected': s.obj.pk in free and s.guid in chosen,
+        }), seats
+
+    @staticmethod
+    def row_buttons(seats):
+        rows, seen = [], set()
+        for s in seats:
+            key = '{}|{}'.format(s.zone or '', s.row_label or s.row)
+            if key not in seen:
+                seen.add(key)
+                rows.append({'key': key, 'zone': s.zone, 'label': s.row_label or s.row})
+        return rows
+
+    def pick(self, form, channel):
+        """(butacas, producto, cantidad, errores) a partir de un PickForm válido."""
+        if self.has_plan:
+            seats, errors = seats_by_guid(self.target, form.cleaned_data['guids'], channel)
+            return seats, None, 0, errors
+        item, quantity = form.cleaned_data['item'], form.cleaned_data['quantity']
+        error = check_quota(item, self.subevent, quantity)
+        return None, item, quantity, [error] if error else []
+
+
+class BoleteriaView(EventDateMixin, EventPermissionRequiredMixin, TemplateView):
+    """
+    Reservar butacas para venta presencial, cargar boletos impresos por una imprenta y
+    generar boletos para que la imprenta los imprima. En una serie se trabaja fecha por fecha.
+    """
+    permission = 'event.orders:write'
+    template_name = 'pretixplugins/andinaseating/boleteria.html'
+    url_name = 'boleteria'
 
     def free_for_boleteria(self):
         enable_for_event(self.request.event)
         return set(self.target.free_seats(sales_channel=CHANNEL_IDENTIFIER).values_list('pk', flat=True))
 
+    def generate_form(self, data=None):
+        return GenerateForm(data, numbered=self.has_plan, items=unnumbered_items(self.request.event))
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         event, target = self.request.event, self.target
+        ctx.update(self.date_context())
+        positions = list(boleteria_positions(event, self.subevent))
+        for p in positions:
+            p.generated = (p.order.comment or '').startswith(GENERATED_COMMENT)
         ctx.update({
-            'series': event.has_subevents,
-            'subevent': self.subevent,
-            'subevents': event.subevents.order_by('date_from', 'pk') if event.has_subevents else [],
-            'has_plan': bool(target and target.seating_plan_id),
-            'plan_url': reverse('plugins:andinaseating:event', kwargs={
-                'organizer': event.organizer.slug, 'event': event.slug,
-            }),
             'form': kwargs.get('form') or TicketsUploadForm(),
+            'generate_form': kwargs.get('generate_form') or self.generate_form(),
             'errors': kwargs.get('errors', []),
+            'positions': positions,
+            'generated': [
+                {'order': o, 'count': o.positions.count(), 'courtesy': o.total == 0}
+                for o in generated_orders(event, self.subevent)
+            ],
+            'generated_comment': GENERATED_COMMENT,
         })
         if not ctx['has_plan']:
+            ctx['stats'] = {
+                'tickets': sum(1 for p in positions if not p.canceled),
+                'courtesies': sum(1 for p in positions if not p.canceled and is_courtesy(p)),
+            }
             return ctx
 
         free = self.free_for_boleteria()
@@ -83,18 +148,11 @@ class BoleteriaView(EventPermissionRequiredMixin, TemplateView):
             'salable': s.obj.pk in free,
             'selected': s.obj.pk in free and s.obj.blocked,
         })
-        rows, seen = [], set()
-        for s in seats:
-            key = '{}|{}'.format(s.zone or '', s.row_label or s.row)
-            if key not in seen:
-                seen.add(key)
-                rows.append({'key': key, 'zone': s.zone, 'label': s.row_label or s.row})
-
-        positions = list(boleteria_positions(event, self.subevent))
+        pick_blocks, _ = self.pick_blocks(CHANNEL_IDENTIFIER, ctx['generate_form'])
         ctx.update({
             'blocks': blocks,
-            'rows': rows,
-            'positions': positions,
+            'pick_blocks': pick_blocks,
+            'rows': self.row_buttons(seats),
             'stats': {
                 'total': len(seats),
                 'online': target.free_seats(sales_channel='web').count(),
@@ -106,15 +164,19 @@ class BoleteriaView(EventPermissionRequiredMixin, TemplateView):
         return ctx
 
     def post(self, request, *args, **kwargs):
-        if not self.target or not self.target.seating_plan_id:
+        if not self.target:
             raise Http404()
         action = request.POST.get('action')
+        if action == 'generate':
+            return self.post_generate()
+        if action == 'cancel':
+            return self.post_cancel()
+        if not self.has_plan:
+            raise Http404()
         if action == 'reserve':
             return self.post_reserve()
         if action == 'import':
             return self.post_import()
-        if action == 'cancel':
-            return self.post_cancel()
         return redirect(self.url())
 
     def post_reserve(self):
@@ -159,6 +221,31 @@ class BoleteriaView(EventPermissionRequiredMixin, TemplateView):
         messages.success(self.request, msg)
         return redirect(self.url())
 
+    def post_generate(self):
+        form = self.generate_form(self.request.POST)
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(generate_form=form))
+        event = self.request.event
+        channel = enable_for_event(event)
+        kind = form.cleaned_data['kind']
+        try:
+            with transaction.atomic():
+                seats, item, quantity, errors = self.pick(form, channel)
+                if errors:
+                    return self.render_to_response(self.get_context_data(generate_form=form, errors=errors))
+                order = generate_tickets(event, self.subevent, self.request.user, kind,
+                                         seats=seats, item=item, quantity=quantity)
+        except ValidationError as e:
+            return self.render_to_response(self.get_context_data(generate_form=form, errors=e.messages))
+        n = order.positions.count()
+        messages.success(self.request, format_html(
+            'Se generaron {} boleto{} {}. <a href="{}">Descargar el paquete para la imprenta</a>.',
+            n, '' if n == 1 else 's', 'de cortesía' if kind == KIND_COURTESY else 'para la venta',
+            reverse('plugins:andinaseating:boleteria.paquete', kwargs={
+                'organizer': event.organizer.slug, 'event': event.slug, 'code': order.code}),
+        ))
+        return redirect(self.url())
+
     def post_cancel(self):
         try:
             position = boleteria_positions(self.request.event, self.subevent).get(
@@ -171,6 +258,25 @@ class BoleteriaView(EventPermissionRequiredMixin, TemplateView):
         except OrderError as e:
             messages.error(self.request, 'No se pudo anular el boleto: {}'.format(e))
         else:
-            messages.success(self.request, 'Boleto {} anulado. La butaca sigue reservada para boletería.'.format(
-                position.secret))
+            messages.success(self.request, 'Boleto {} anulado.{}'.format(
+                position.secret, ' La butaca sigue reservada para boletería.' if position.seat_id else ''))
         return redirect(self.url())
+
+
+class BoleteriaPackageView(EventPermissionRequiredMixin, View):
+    """Descarga el paquete para la imprenta (ZIP) de un lote de boletos generados."""
+    permission = 'event.orders:write'
+
+    def get(self, request, *args, **kwargs):
+        try:
+            order = request.event.orders.get(
+                code=kwargs['code'], sales_channel__identifier=CHANNEL_IDENTIFIER,
+                comment__startswith=GENERATED_COMMENT,
+            )
+        except Order.DoesNotExist:
+            raise Http404()
+        filename, content = printer_package(order)
+        order.log_action('pretix.plugins.andinaseating.package.downloaded', user=request.user)
+        resp = HttpResponse(content, content_type='application/zip')
+        resp['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        return resp

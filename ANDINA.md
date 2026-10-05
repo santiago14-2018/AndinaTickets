@@ -25,17 +25,30 @@ con Windows (y pasarle los datos), ver [INSTALAR.md](INSTALAR.md).
 | Salas | Organizador → Salas | Crear salas; generar sectores por parámetros (filas, butacas, pasillo, curva, filas alternadas) con vista previa en vivo, o subirlos como JSON o CSV |
 | Tienda | Página del evento | Plano para elegir butacas (seatmap-canvas), sincronizado con la lista de butacas, que queda como alternativa accesible |
 | Plan de butacas | Evento → Plan de butacas | Elegir sala (por fecha en una serie) y conectar categorías con productos y cupos |
-| Boletería | Evento → Boletería | Reservar butacas para venta presencial y cargar boletos impresos (CSV `codigo;fila;butaca`) |
+| Boletería | Evento → Boletería | Reservar butacas para venta presencial, cargar boletos impresos (CSV `codigo;fila;butaca`) y generar boletos para la imprenta (con y sin numerar) |
+| Cortesías | Evento → Cortesías | Dar entradas de regalo eligiendo nombre, email y butacas (o cantidad, sin numerar); le llegan por email con QR |
 
-Los boletos impresos se cargan como entradas del canal de venta **Boletería**
-(`api.boleteria`), con el código del boleto como código de la entrada. En la puerta se
+Los boletos de papel son entradas del canal de venta **Boletería** (`api.boleteria`). Hay dos
+caminos: la imprenta pone los números y se cargan con un CSV (el código del boleto pasa a ser
+el código de la entrada), o AndinaTickets genera los códigos y arma un paquete ZIP para la
+imprenta (`imprenta.py`: entradas en PDF, un QR por boleto y una planilla). En la puerta se
 escanean igual que una entrada online (pretixSCAN o check-in web).
 
-Cada carga es de **venta** (al precio del producto) o de **cortesía** (regalo, a $0). Una
-cortesía es simplemente una entrada de precio 0, sin campos extra: así la reconocen la
-Boletería y el portal del productor. Las cortesías digitales se hacen con los vales de pretix
-(precio fijado en 0); el plano de butacas muestra el precio del vale y solo los productos a
-los que se aplica.
+Cada carga o generación es de **venta** (al precio del producto) o de **cortesía** (regalo, a
+$0). Una cortesía es simplemente una entrada de precio 0, sin campos extra: así la reconocen la
+Boletería y el portal del productor.
+
+Cortesías digitales:
+
+- **Cortesías** (`cortesias.py`): el organizador elige a quién y qué butacas; es un pedido de
+  $0 del canal **Cortesías** (`api.cortesias`) y el email lleva la entrada en PDF. Sin email,
+  queda como lista de invitados (se busca por nombre en el check-in). Para que el email adjunte
+  la entrada, el evento tiene que permitir descargar entradas en PDF (la pantalla avisa si no).
+- **Vales** de pretix con precio fijado en 0 (uno o muchos, enviados por email): el invitado
+  elige su butaca; el plano muestra el precio del vale y solo los productos a los que se aplica.
+
+Las generaciones y cortesías usan el importador de pedidos de pretix (`run_import`), que no
+controla cupos: para eventos sin numerar se controlan antes (`check_quota`).
 
 ### Plugin andinamercadopago
 
@@ -57,7 +70,8 @@ docker exec -e PRETIX_DATABASE_BACKEND=sqlite3 -e PRETIX_DATABASE_NAME= andina-t
 ```
 
 - `tests/plugins/andinamercadopago`: cobro, avisos y devoluciones de Mercado Pago.
-- `tests/plugins/andinaseating`: boletería (venta y cortesía), canje de vales con plano e
+- `tests/plugins/andinaseating`: boletería (venta y cortesía), boletos generados para la
+  imprenta y su paquete, cortesías por email, canje de vales con plano, plano del comprador e
   informe del productor. `andinaseating` es HYBRID: en las pruebas hay que activarlo en el
   organizador y en el evento (ver `conftest.py`).
 

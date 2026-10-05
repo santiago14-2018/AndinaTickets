@@ -22,11 +22,36 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 
 ---
 
+## 2026-10-05
+
+- [PROPIO] Boletería: **generar boletos para la imprenta**. AndinaTickets crea los códigos
+  (con butacas elegidas en el plano o, sin numerar, por cantidad) y arma un paquete ZIP:
+  entradas en PDF listas para imprimir, un QR por boleto (PNG), planilla y LEEME para la
+  imprenta (`imprenta.py`). De venta o de cortesía; las butacas quedan reservadas.
+- [PROPIO] La Boletería funciona también en eventos y fechas sin butacas numeradas (solo la
+  generación por cantidad; reservar butacas y cargar el CSV de la imprenta siguen siendo para
+  numeradas). Controla los cupos, que el importador de pretix no mira.
+- [PROPIO] Pantalla nueva **Cortesías** (Evento → Cortesías): nombre, email y butacas (o
+  cantidad); al invitado le llega la entrada con QR por email. Sin email queda como lista de
+  invitados. Reenviar y anular. Canal de venta nuevo `api.cortesias`; el informe del productor
+  las cuenta como cortesías digitales. Avisa si el evento no permite descargar entradas.
+- [PROPIO] `boleteria.py`: una sola función (`run_import`) para crear entradas con el
+  importador de pedidos; la usan la carga de la imprenta, la generación y las cortesías.
+- [PROPIO] 17 pruebas nuevas (`test_imprenta.py`, `test_cortesias.py`): 50 en total.
+- [PROPIO] Datos: en DEMO – Hamlet y DEMO – Noches de Risa se activó la descarga de entradas en
+  PDF (venía apagada, como en pretix por defecto): sin eso los compradores no reciben la
+  entrada. Es configuración en la base, no código.
+
 ## 2026-10-03
 
 - [PROPIO] `ANDINA.md`: nueva "caja 3" (programas privados aparte que usan solo la API y los
   webhooks de pretix), con sus reglas. Cambia la decisión del 02/10 de no armar programas
   aparte. La lista de ideas es plan de negocio y queda en `privado/`.
+- [PROPIO] La documentación en Word pasa a `privado/documentacion/` (las versiones viejas en
+  `anteriores/`), así se respalda junto con el resto de `privado/`. `INSTALAR.md` y
+  `privado/LEEME.md` actualizados.
+- [PROPIO] `.dockerignore`: se excluye `privado/`, para que al armar la imagen Docker no lea
+  las copias de la base ni los documentos (los Dockerfile ya no los copiaban).
 
 ## 2026-10-02
 
@@ -129,5 +154,6 @@ use las piezas de pretix (pedidos, pagos, butacas, permisos):
 | Mercado Pago | `mp_api.py`: llamadas a la API y verificación de la firma de los avisos | La conexión con pedidos y pagos (`payment.py`, `views.py`) |
 | Salas | `layout.py`: generador de sectores y lectura de CSV/JSON | El guardado de salas y butacas |
 | Plano de butacas | `seatmap-andina.js` y `seatmap.py` (pasaje al formato de seatmap-canvas) | Las pantallas y el carrito |
-| Boletería | Lectura y validación del CSV de boletos | La carga de entradas (hoy usa el importador de pedidos de pretix) |
+| Boletería | Lectura y validación del CSV de boletos; QR, planilla y LEEME del paquete para la imprenta (`imprenta.py`) | La carga y generación de entradas (hoy usa el importador de pedidos de pretix) y el PDF de la entrada (hoy lo dibuja pretix) |
+| Cortesías | El texto del email y el manejo de nombres (`cortesias.py`) | La creación del pedido y el envío con la entrada adjunta (hoy, pretix) |
 | Productores | El armado del PDF con reportlab | Los cálculos (hoy leen los pedidos de pretix) y los permisos |

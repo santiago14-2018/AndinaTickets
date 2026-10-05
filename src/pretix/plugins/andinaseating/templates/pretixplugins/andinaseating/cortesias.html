@@ -1,0 +1,150 @@
+{% extends "pretixcontrol/event/base.html" %}
+{% load static %}
+{% load bootstrap3 %}
+{% block title %}Cortesías :: {{ request.event.name }}{% endblock %}
+{% block custom_header %}
+    {{ block.super }}
+    <link rel="stylesheet" type="text/css" href="{% static "pretixplugins/andinaseating/vendor/seatmap-canvas/seatmap.canvas.css" %}">
+    <link rel="stylesheet" type="text/css" href="{% static "pretixplugins/andinaseating/control.css" %}">
+{% endblock %}
+{% block content %}
+    <h1>Cortesías</h1>
+    <p>
+        Entradas de regalo ($0): elegís a quién y {% if has_plan %}qué butacas{% else %}cuántas{% endif %}, y le
+        llegan por email con su código QR. Sin email, quedan en la lista de invitados y en la puerta se lo busca por
+        nombre. No suman dinero ni comisión.
+    </p>
+
+    {% if series %}
+        <form method="get" class="form-inline andinaseating-date-form">
+            <label for="fecha-select">Fecha</label>
+            <select name="fecha" id="fecha-select" class="form-control">
+                {% for se in subevents %}
+                    <option value="{{ se.pk }}" {% if se == subevent %}selected{% endif %}>
+                        {{ se.name }} – {{ se.get_date_range_display }}{% if not se.seating_plan_id %} (sin numerar){% endif %}
+                    </option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-default">Ver</button>
+        </form>
+    {% endif %}
+
+    {% for e in errors %}
+        <div class="alert alert-danger">{{ e }}</div>
+    {% endfor %}
+
+    {% if download_problem %}
+        <div class="alert alert-warning">
+            <strong>Atención:</strong> en este evento los invitados recibirían el email <strong>sin</strong> la entrada:
+            {{ download_problem }}. Lo mismo les pasa a los compradores online.
+        </div>
+    {% endif %}
+
+    <form method="post" class="panel panel-default">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="create">
+        {% if subevent %}<input type="hidden" name="fecha" value="{{ subevent.pk }}">{% endif %}
+        <div class="panel-heading"><h3 class="panel-title">Nueva cortesía</h3></div>
+        <div class="panel-body">
+            {% bootstrap_form form layout="horizontal" %}
+            {% if has_plan %}
+                <p class="text-muted small">
+                    Elegí las butacas en el plano (una entrada por butaca). También se pueden dar las reservadas para
+                    boletería; las grises no están disponibles.
+                </p>
+                <div id="cortesia-map" class="andina-seatmap" data-source="pick-blocks" data-mode="select"
+                     data-input="id_seats"></div>
+                <noscript><div class="alert alert-warning">El plano necesita JavaScript.</div></noscript>
+                <p class="andinaseating-rows">
+                    <strong>Fila completa:</strong>
+                    {% for r in rows %}
+                        <button type="button" class="btn btn-default btn-xs" data-andina-map="cortesia-map"
+                                data-andina-row="{{ r.key }}">{% if r.zone %}{{ r.zone }} · {% endif %}{{ r.label }}</button>
+                    {% endfor %}
+                </p>
+            {% endif %}
+        </div>
+        <div class="panel-footer text-right">
+            {% if has_plan %}<span class="text-muted"><span data-andina-count="id_seats">0</span> elegidas</span>{% endif %}
+            <button type="submit" class="btn btn-primary"><span class="fa fa-gift"></span> Dar la cortesía</button>
+        </div>
+    </form>
+
+    <div class="alert alert-info">
+        <strong>¿Muchos invitados que eligen solos?</strong> Para mandar invitaciones a una lista de emails y que cada
+        uno elija su butaca, usá <a href="{{ vouchers_url }}">Vales → Crear varios vales</a> con precio 0 y la opción
+        "Enviar vales por email".
+    </div>
+
+    <div class="panel panel-default">
+        <div class="panel-heading"><h3 class="panel-title">Cortesías dadas{% if count %} ({{ count }} entrada{{ count|pluralize }}){% endif %}</h3></div>
+        {% if orders %}
+            <div class="table-responsive">
+                <table class="table table-condensed">
+                    <thead>
+                    <tr>
+                        <th>Invitado</th>
+                        <th>Email</th>
+                        <th>Entradas</th>
+                        <th>Estado</th>
+                        <th>Pedido</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for r in orders %}
+                        {% with o=r.order %}
+                            <tr{% if o.status != "p" %} class="text-muted"{% endif %}>
+                                <td>{{ r.name }}</td>
+                                <td>{% if o.email %}{{ o.email }}{% else %}<em>lista de invitados</em>{% endif %}</td>
+                                <td>
+                                    {% for p in r.positions %}
+                                        {% if p.seat %}{{ p.seat }}{% else %}{{ p.item.name }}{% endif %}{% if not forloop.last %}<br>{% endif %}
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    {% if o.status != "p" %}Anulada
+                                    {% elif r.checked_in %}<span class="text-success"><span class="fa fa-check"></span> Ingresó</span>
+                                    {% else %}Válida{% endif %}
+                                </td>
+                                <td><a href="{% url "control:event.order" organizer=request.organizer.slug event=request.event.slug code=o.code %}">{{ o.code }}</a></td>
+                                <td class="text-right">
+                                    {% if o.status == "p" %}
+                                        {% if o.email %}
+                                            <form method="post" class="andinaseating-inline">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="action" value="resend">
+                                                <input type="hidden" name="order" value="{{ o.code }}">
+                                                {% if subevent %}<input type="hidden" name="fecha" value="{{ subevent.pk }}">{% endif %}
+                                                <button type="submit" class="btn btn-default btn-xs"><span class="fa fa-envelope"></span> Reenviar</button>
+                                            </form>
+                                        {% endif %}
+                                        <details class="andinaseating-confirm">
+                                            <summary class="btn btn-default btn-xs">Anular</summary>
+                                            <form method="post">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="action" value="cancel">
+                                                <input type="hidden" name="order" value="{{ o.code }}">
+                                                {% if subevent %}<input type="hidden" name="fecha" value="{{ subevent.pk }}">{% endif %}
+                                                <button type="submit" class="btn btn-danger btn-xs">Sí, anular {{ o.code }}</button>
+                                            </form>
+                                        </details>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endwith %}
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="panel-body text-muted"><em>Todavía no se dieron cortesías{% if series %} para esta fecha{% endif %}.</em></div>
+        {% endif %}
+    </div>
+
+    {% if has_plan %}
+        {{ pick_blocks|json_script:"pick-blocks" }}
+        <script src="{% static "pretixplugins/andinaseating/vendor/seatmap-canvas/seatmap.canvas.min.js" %}"></script>
+        <script src="{% static "pretixplugins/andinaseating/seatmap-andina.js" %}"></script>
+    {% endif %}
+{% endblock %}

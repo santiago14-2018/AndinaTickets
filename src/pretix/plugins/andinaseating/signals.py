@@ -72,6 +72,12 @@ def andinaseating_nav_event(sender, request=None, **kwargs):
             'active': url.namespace == 'plugins:andinaseating' and url.url_name == 'boleteria',
             'icon': 'ticket',
         })
+        nav.append({
+            'label': 'Cortesías',
+            'url': reverse('plugins:andinaseating:cortesias', kwargs=kw),
+            'active': url.namespace == 'plugins:andinaseating' and url.url_name == 'cortesias',
+            'icon': 'gift',
+        })
     return nav
 
 

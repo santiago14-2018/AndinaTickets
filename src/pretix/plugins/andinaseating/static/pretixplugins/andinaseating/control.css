@@ -13,6 +13,10 @@
 .andinaseating-confirm form {
     display: inline-block;
 }
+.andinaseating-inline {
+    display: inline-block;
+    margin-right: 4px;
+}
 
 /* Planos dibujados con seatmap-canvas */
 .andina-seatmap {
