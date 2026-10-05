@@ -13,17 +13,20 @@ from django.utils.html import format_html
 from django.views import View
 from django.views.generic import TemplateView
 
-from pretix.base.models import Order, OrderPosition, Seat
+from pretix.base.models import OrderPosition, Seat
 from pretix.base.services.orders import OrderError
+from pretix.base.templatetags.money import money_filter
 from pretix.control.permissions import EventPermissionRequiredMixin
 
 from .boleteria import (
-    CHANNEL_IDENTIFIER, GENERATED_COMMENT, KIND_COURTESY, boleteria_positions,
-    cancel_ticket, check_quota, enable_for_event, generate_tickets,
-    generated_orders, import_tickets, is_courtesy, parse_tickets_csv,
-    resolve_tickets, seats_by_guid, unnumbered_items,
+    CHANNEL_IDENTIFIER, GENERATED_COMMENT, KIND_COURTESY, PAYMENT_METHODS,
+    STATE_CANCELED, STATE_SOLD, STATE_UNSOLD, STATE_VALID, boleteria_positions,
+    box_office_summary, cancel_ticket, cancel_unsold, check_quota,
+    enable_for_event, generate_tickets, generated_lotes, import_tickets,
+    lote_orders, parse_codes, parse_tickets_csv, resolve_tickets,
+    seats_by_guid, sell_tickets, ticket_state, unnumbered_items,
 )
-from .forms import GenerateForm, TicketsUploadForm
+from .forms import GenerateForm, SellForm, TicketsUploadForm
 from .imprenta import printer_package
 from .seatmap import event_seats, seats_to_blocks
 
@@ -124,22 +127,24 @@ class BoleteriaView(EventDateMixin, EventPermissionRequiredMixin, TemplateView):
         positions = list(boleteria_positions(event, self.subevent))
         for p in positions:
             p.generated = (p.order.comment or '').startswith(GENERATED_COMMENT)
+            p.state = ticket_state(p)
+        states = [p.state for p in positions]
         ctx.update({
             'form': kwargs.get('form') or TicketsUploadForm(),
             'generate_form': kwargs.get('generate_form') or self.generate_form(),
+            'sell_form': kwargs.get('sell_form') or SellForm(),
             'errors': kwargs.get('errors', []),
             'positions': positions,
-            'generated': [
-                {'order': o, 'count': o.positions.count(), 'courtesy': o.total == 0}
-                for o in generated_orders(event, self.subevent)
-            ],
-            'generated_comment': GENERATED_COMMENT,
+            'generated': generated_lotes(event, self.subevent),
+            'summary': box_office_summary(event, self.subevent),
+            'paper': {
+                'unsold': states.count(STATE_UNSOLD),
+                'sold': states.count(STATE_SOLD),
+                'courtesies': states.count(STATE_VALID),
+                'canceled': states.count(STATE_CANCELED),
+            },
         })
         if not ctx['has_plan']:
-            ctx['stats'] = {
-                'tickets': sum(1 for p in positions if not p.canceled),
-                'courtesies': sum(1 for p in positions if not p.canceled and is_courtesy(p)),
-            }
             return ctx
 
         free = self.free_for_boleteria()
@@ -157,8 +162,6 @@ class BoleteriaView(EventDateMixin, EventPermissionRequiredMixin, TemplateView):
                 'total': len(seats),
                 'online': target.free_seats(sales_channel='web').count(),
                 'reserved': sum(1 for s in seats if s.obj.blocked and s.obj.pk in free),
-                'tickets': sum(1 for p in positions if not p.canceled),
-                'courtesies': sum(1 for p in positions if not p.canceled and is_courtesy(p)),
             },
         })
         return ctx
@@ -167,6 +170,10 @@ class BoleteriaView(EventDateMixin, EventPermissionRequiredMixin, TemplateView):
         if not self.target:
             raise Http404()
         action = request.POST.get('action')
+        if action == 'sell':
+            return self.post_sell()
+        if action == 'cancel_unsold':
+            return self.post_cancel_unsold()
         if action == 'generate':
             return self.post_generate()
         if action == 'cancel':
@@ -221,6 +228,36 @@ class BoleteriaView(EventDateMixin, EventPermissionRequiredMixin, TemplateView):
         messages.success(self.request, msg)
         return redirect(self.url())
 
+    def post_sell(self):
+        form = SellForm(self.request.POST)
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(sell_form=form))
+        event = self.request.event
+        method = form.cleaned_data['method']
+        try:
+            with transaction.atomic():
+                positions, total = sell_tickets(event, parse_codes(form.cleaned_data['codes']), method,
+                                                self.request.user)
+        except ValidationError as e:
+            return self.render_to_response(self.get_context_data(sell_form=form, errors=e.messages))
+        n = len(positions)
+        detail = ', '.join(str(p.seat) if p.seat else str(p.item.name) for p in positions[:6])
+        messages.success(self.request, 'Vendido{s} {n} boleto{s}: {total} en {method}. Ya entran en la puerta. '
+                                       '({detail}{more})'.format(
+                                           s='' if n == 1 else 's', n=n, total=money_filter(total, event.currency),
+                                           method=dict(PAYMENT_METHODS)[method].lower(), detail=detail,
+                                           more='…' if n > 6 else ''))
+        return redirect(self.url())
+
+    def post_cancel_unsold(self):
+        n = cancel_unsold(self.request.event, self.subevent, self.request.user)
+        if n:
+            messages.success(self.request, 'Se anularon {} boleto{} sin vender: ya no sirven en la puerta.'.format(
+                n, '' if n == 1 else 's'))
+        else:
+            messages.info(self.request, 'No había boletos sin vender.')
+        return redirect(self.url())
+
     def post_generate(self):
         form = self.generate_form(self.request.POST)
         if not form.is_valid():
@@ -233,16 +270,18 @@ class BoleteriaView(EventDateMixin, EventPermissionRequiredMixin, TemplateView):
                 seats, item, quantity, errors = self.pick(form, channel)
                 if errors:
                     return self.render_to_response(self.get_context_data(generate_form=form, errors=errors))
-                order = generate_tickets(event, self.subevent, self.request.user, kind,
-                                         seats=seats, item=item, quantity=quantity)
+                lote, orders = generate_tickets(event, self.subevent, self.request.user, kind,
+                                                seats=seats, item=item, quantity=quantity)
         except ValidationError as e:
             return self.render_to_response(self.get_context_data(generate_form=form, errors=e.messages))
-        n = order.positions.count()
+        n = sum(o.positions.count() for o in orders)
+        courtesy = kind == KIND_COURTESY
         messages.success(self.request, format_html(
-            'Se generaron {} boleto{} {}. <a href="{}">Descargar el paquete para la imprenta</a>.',
-            n, '' if n == 1 else 's', 'de cortesía' if kind == KIND_COURTESY else 'para la venta',
+            'Se generaron {} boleto{} {} (lote {}). <a href="{}">Descargar el paquete para la imprenta</a>.{}',
+            n, '' if n == 1 else 's', 'de cortesía' if courtesy else 'para la venta', lote,
             reverse('plugins:andinaseating:boleteria.paquete', kwargs={
-                'organizer': event.organizer.slug, 'event': event.slug, 'code': order.code}),
+                'organizer': event.organizer.slug, 'event': event.slug, 'lote': lote}),
+            '' if courtesy else ' Quedan sin vender: entran en la puerta recién cuando se venden acá.',
         ))
         return redirect(self.url())
 
@@ -268,15 +307,12 @@ class BoleteriaPackageView(EventPermissionRequiredMixin, View):
     permission = 'event.orders:write'
 
     def get(self, request, *args, **kwargs):
-        try:
-            order = request.event.orders.get(
-                code=kwargs['code'], sales_channel__identifier=CHANNEL_IDENTIFIER,
-                comment__startswith=GENERATED_COMMENT,
-            )
-        except Order.DoesNotExist:
+        orders = lote_orders(request.event, kwargs['lote']).filter(comment__startswith=GENERATED_COMMENT)
+        if not orders.exists():
             raise Http404()
-        filename, content = printer_package(order)
-        order.log_action('pretix.plugins.andinaseating.package.downloaded', user=request.user)
+        filename, content = printer_package(request.event, kwargs['lote'])
+        request.event.log_action('pretix.plugins.andinaseating.package.downloaded', user=request.user,
+                                 data={'lote': kwargs['lote']})
         resp = HttpResponse(content, content_type='application/zip')
         resp['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
         return resp

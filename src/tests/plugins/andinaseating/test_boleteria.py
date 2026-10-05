@@ -21,7 +21,7 @@ from pretix.base.models import Order, OrderPosition
 from pretix.plugins.andinaproductores.report import build_report
 from pretix.plugins.andinaseating.boleteria import (
     KIND_COURTESY, KIND_SALE, boleteria_positions, enable_for_event,
-    import_tickets, parse_tickets_csv, resolve_tickets,
+    import_tickets, parse_tickets_csv, resolve_tickets, sell_tickets,
 )
 
 from .conftest import PRICE
@@ -39,17 +39,17 @@ def load(event, user, content, kind):
 
 
 @pytest.mark.django_db
-def test_venta_se_carga_al_precio_del_producto(env):
+def test_venta_se_carga_al_precio_del_producto_sin_vender(env):
     event, item, user = env
     with scopes_disabled():
         assert load(event, user, csv_bytes('0001;A;1', '0002;A;2'), KIND_SALE) == 2
         positions = list(boleteria_positions(event, None))
         assert {p.secret for p in positions} == {'0001', '0002'}
         assert all(p.price == PRICE for p in positions)
-        order = positions[0].order
-        assert order.status == Order.STATUS_PAID
-        assert order.total == 2 * PRICE
-        assert order.comment.startswith('Boletos impresos')
+        # Un pedido por boleto, pendiente: se activa al venderlo en el mostrador.
+        assert len({p.order_id for p in positions}) == 2
+        assert all(p.order.status == Order.STATUS_PENDING for p in positions)
+        assert all(p.order.comment.startswith('Boletos impresos') for p in positions)
         # La butaca queda reservada para boletería: la tienda online no la vende.
         assert all(p.seat.blocked for p in positions)
 
@@ -114,7 +114,8 @@ def test_pantalla_exige_elegir_el_tipo(env, client):
 def test_informe_del_productor_separa_cortesias(env):
     event, item, user = env
     with scopes_disabled():
-        load(event, user, csv_bytes('0001;A;1', '0002;A;2'), KIND_SALE)
+        load(event, user, csv_bytes('0001;A;1', '0002;A;2', '0003;A;3'), KIND_SALE)
+        sell_tickets(event, ['0001', '0002'], 'efectivo', user)  # el 0003 queda sin vender: no cuenta
         load(event, user, csv_bytes('R001;B;1'), KIND_COURTESY)
         # Una venta online y una cortesía online (por ejemplo, con un vale al 100 %).
         web = event.organizer.sales_channels.get(identifier='web')

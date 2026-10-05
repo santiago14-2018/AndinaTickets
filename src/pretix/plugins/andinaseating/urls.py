@@ -14,7 +14,7 @@ urlpatterns = [
             name='event'),
     re_path(r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/boleteria/$', BoleteriaView.as_view(),
             name='boleteria'),
-    re_path(r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/boleteria/paquete/(?P<code>[A-Z0-9]+)/$',
+    re_path(r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/boleteria/paquete/(?P<lote>[A-F0-9]{8})/$',
             BoleteriaPackageView.as_view(), name='boleteria.paquete'),
     re_path(r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/cortesias/$', CortesiasView.as_view(),
             name='cortesias'),

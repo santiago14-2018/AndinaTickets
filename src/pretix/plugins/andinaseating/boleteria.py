@@ -15,18 +15,26 @@ Boletería: butacas reservadas para venta presencial y boletos impresos por una 
   informe del productor, sin campos extra.
 - También se pueden generar los boletos al revés: AndinaTickets crea los códigos y arma
   el paquete para la imprenta (ver imprenta.py). Sirve para eventos con y sin numerar.
+- Los boletos de venta se activan al venderlos: hasta que el boletero los vende en el
+  mostrador (sell_tickets) son pedidos pendientes y no entran en la puerta. Así un boleto
+  perdido sin vender no sirve, y los informes muestran lo vendido de verdad (cuándo, por
+  quién y con qué medio de pago). Las cortesías de papel son válidas desde que se cargan.
 """
 import csv
 import io
+import json
 import secrets
 from datetime import timedelta
+from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.utils.timezone import now
 from i18nfield.strings import LazyI18nString
 
-from pretix.base.models import CachedFile, Order, OrderPosition
+from pretix.base.models import (
+    CachedFile, Order, OrderPayment, OrderPosition, Quota,
+)
 from pretix.base.services.modelimport import DataImportError, import_orders
 from pretix.base.services.orders import OrderChangeManager, _cancel_order
 
@@ -164,15 +172,26 @@ def is_courtesy(position):
     return position.price == 0
 
 
-def run_import(event, subevent, user, channel, rows, comment, courtesy=False, email=''):
+def lote_comment(comment, lote):
+    return '{} · lote {}'.format(comment, lote)
+
+
+def run_import(event, subevent, user, channel, rows, comment, courtesy=False, email='', pending=False):
     """
-    Crea UN pedido pagado con el importador de pedidos de pretix (que valida producto, butaca
-    y código). ``rows``: dicts con item (pk), y opcionales seat (seat_guid) y secret; sin
-    secret, pretix genera el código. Las cortesías van a precio 0. El comentario lleva un
-    número de lote único: con él se encuentra el pedido creado (el importador no lo devuelve).
+    Crea entradas con el importador de pedidos de pretix (que valida producto, butaca y
+    código). ``rows``: dicts con item (pk), y opcionales seat (seat_guid) y secret; sin secret,
+    pretix genera el código. Las cortesías van a precio 0.
+
+    - Pagadas (cortesías): un solo pedido para todas.
+    - ``pending`` (boletos de papel para vender): un pedido pendiente por boleto, así cada uno se
+      vende por separado (sell_tickets). Un pedido pendiente no entra en la puerta. Vencen al día
+      siguiente de la función: lo que no se vendió se anula solo.
+
+    El comentario lleva un número de lote único, con el que se encuentran los pedidos creados
+    (el importador no los devuelve). Devuelve (lote, [pedidos]).
     """
     lote = secrets.token_hex(4).upper()
-    comment = '{} · lote {}'.format(comment, lote)
+    comment = lote_comment(comment, lote)
     cols = ['item', 'seat', 'secret', 'subevent', 'price', 'email']
     out = io.StringIO()
     writer = csv.writer(out)
@@ -185,8 +204,8 @@ def run_import(event, subevent, user, channel, rows, comment, courtesy=False, em
                                    filename='import.csv', type='text/csv')
     cf.file.save('import.csv', ContentFile(out.getvalue().encode('utf-8')))
     settings = {
-        'orders': 'one',
-        'status': 'paid',
+        'orders': 'many' if pending else 'one',
+        'status': 'pending' if pending else 'paid',
         'testmode': event.testmode,
         'item': 'csv:item',
         'sales_channel': 'static:' + channel.identifier,
@@ -211,21 +230,26 @@ def run_import(event, subevent, user, channel, rows, comment, courtesy=False, em
         if isinstance(exc, (DataImportError, ValidationError)):
             raise ValidationError(str(exc))
         raise exc
-    return Order.objects.get(event=event, sales_channel=channel, comment=comment)
+    orders = list(Order.objects.filter(event=event, sales_channel=channel, comment=comment).order_by('pk'))
+    if pending:
+        when = subevent or event
+        Order.objects.filter(pk__in=[o.pk for o in orders]).update(
+            expires=(when.date_to or when.date_from) + timedelta(days=1))
+    return lote, orders
 
 
 def import_tickets(event, subevent, resolved, user, filename, kind=KIND_SALE):
     """
-    Crea un pedido pagado en el canal Boletería con una entrada por boleto impreso
-    (código = código del boleto) y deja esas butacas reservadas para boletería.
-    Las cortesías se cargan a precio 0.
+    Carga los boletos impresos por la imprenta (código = código del boleto) en el canal
+    Boletería y deja esas butacas reservadas para boletería. Los de venta quedan sin vender
+    hasta que se venden en el mostrador; las cortesías, válidas y a precio 0.
     """
     courtesy = kind == KIND_COURTESY
     channel = enable_for_event(event)
     rows = [{'item': seat.product_id, 'seat': seat.seat_guid, 'secret': code} for code, seat in resolved]
     run_import(event, subevent, user, channel, rows,
                '{} ({})'.format('Cortesías impresas' if courtesy else 'Boletos impresos', filename),
-               courtesy=courtesy)
+               courtesy=courtesy, pending=not courtesy)
     (subevent or event).seats.filter(pk__in=[s.pk for _, s in resolved]).update(blocked=True)
     return len(resolved)
 
@@ -280,23 +304,159 @@ def generate_tickets(event, subevent, user, kind, seats=None, item=None, quantit
     """
     AndinaTickets crea los códigos de boletos que va a imprimir la imprenta (canal Boletería):
     con butacas elegidas en el plano o, sin numerar, una cantidad de un producto. Las butacas
-    quedan reservadas para boletería, igual que al cargar boletos de la imprenta. Devuelve el
-    pedido creado; su paquete para la imprenta lo arma imprenta.printer_package.
+    quedan reservadas para boletería. Los de venta quedan sin vender (no entran en la puerta)
+    hasta que se venden en el mostrador; las cortesías, válidas. Devuelve (lote, [pedidos]); el
+    paquete para la imprenta lo arma imprenta.printer_package.
     """
     courtesy = kind == KIND_COURTESY
     channel = enable_for_event(event)
     comment = '{} ({})'.format(GENERATED_COMMENT, 'cortesías' if courtesy else 'venta')
-    order = run_import(event, subevent, user, channel, rows_for(seats, item, quantity), comment, courtesy=courtesy)
+    lote, orders = run_import(event, subevent, user, channel, rows_for(seats, item, quantity), comment,
+                              courtesy=courtesy, pending=not courtesy)
     if seats:
         (subevent or event).seats.filter(pk__in=[s.pk for s in seats]).update(blocked=True)
-    return order
+    return lote, orders
 
 
-def generated_orders(event, subevent):
-    return Order.objects.filter(
-        event=event, sales_channel__identifier=CHANNEL_IDENTIFIER, comment__startswith=GENERATED_COMMENT,
+def lote_orders(event, lote):
+    return Order.objects.filter(event=event, sales_channel__identifier=CHANNEL_IDENTIFIER,
+                                comment__endswith=' · lote {}'.format(lote))
+
+
+def generated_lotes(event, subevent):
+    """Lotes generados para la imprenta en esta fecha, del más nuevo al más viejo."""
+    lotes = {}
+    positions = OrderPosition.all.filter(
+        order__event=event, subevent=subevent, order__sales_channel__identifier=CHANNEL_IDENTIFIER,
+        order__comment__startswith=GENERATED_COMMENT,
+    ).select_related('order')
+    for p in positions:
+        lote = p.order.comment.rsplit(' · lote ', 1)[-1]
+        g = lotes.setdefault(lote, {'lote': lote, 'datetime': p.order.datetime, 'courtesy': p.price == 0,
+                                    'count': 0, 'sold': 0, 'pending': 0, 'canceled': 0})
+        g['count'] += 1
+        state = ticket_state(p)
+        if state in (STATE_SOLD, STATE_VALID):
+            g['sold'] += 1
+        elif state == STATE_UNSOLD:
+            g['pending'] += 1
+        else:
+            g['canceled'] += 1
+    return sorted(lotes.values(), key=lambda g: g['datetime'], reverse=True)
+
+
+# ---------------------------------------------------------------- vender en el mostrador
+
+STATE_UNSOLD, STATE_SOLD, STATE_VALID, STATE_CANCELED = 'sin vender', 'vendido', 'válido', 'anulado'
+
+PAYMENT_METHODS = (
+    ('efectivo', 'Efectivo'),
+    ('debito', 'Tarjeta de débito'),
+    ('credito', 'Tarjeta de crédito'),
+    ('transferencia', 'Transferencia o QR'),
+)
+
+
+def ticket_state(position):
+    """Sin vender (pendiente) · vendido (venta pagada) · válido (cortesía) · anulado."""
+    if position.canceled or position.order.status in (Order.STATUS_CANCELED, Order.STATUS_EXPIRED):
+        return STATE_CANCELED
+    if position.order.status == Order.STATUS_PENDING:
+        return STATE_UNSOLD
+    return STATE_VALID if position.price == 0 else STATE_SOLD
+
+
+def parse_codes(text):
+    return [c for c in dict.fromkeys(line.strip() for line in (text or '').splitlines()) if c]
+
+
+def sell_tickets(event, codes, method, user):
+    """
+    Vende en el mostrador los boletos de papel con esos códigos: quedan pagados (medio de pago
+    "Boletería" de pretix, con el medio y quién vendió) y desde ahí entran en la puerta. Todo o
+    nada: si un código no sirve, no se vende ninguno. Devuelve ([OrderPosition], total).
+    """
+    if not codes:
+        raise ValidationError('Escaneá o escribí al menos un código.')
+    if len(codes) > MAX_GENERATE:
+        raise ValidationError('Son demasiados boletos juntos (máximo {}).'.format(MAX_GENERATE))
+    found = {p.secret: p for p in OrderPosition.all.filter(
+        order__event=event, order__sales_channel__identifier=CHANNEL_IDENTIFIER, secret__in=codes,
+    ).select_related('order', 'seat', 'item', 'subevent')}
+    errors = []
+    for code in codes:
+        p = found.get(code)
+        state = ticket_state(p) if p else None
+        if not p:
+            errors.append('{}: no es un boleto de papel de este evento.'.format(code))
+        elif state == STATE_CANCELED:
+            errors.append('{}: está anulado.'.format(code))
+        elif state == STATE_SOLD:
+            errors.append('{}: ya estaba vendido.'.format(code))
+        elif state == STATE_VALID:
+            errors.append('{}: es de cortesía, no se vende.'.format(code))
+        elif p.order.positions.count() != 1:
+            errors.append('{}: está en un pedido con otros boletos; vendelo desde el pedido.'.format(code))
+    if errors:
+        raise ValidationError(errors)
+
+    label = dict(PAYMENT_METHODS)[method]
+    seller = user.email if user else ''
+    positions = [found[c] for c in codes]
+    total = Decimal('0.00')
+    for p in positions:
+        order = p.order
+        payment = order.payments.create(
+            provider='boxoffice', amount=order.pending_sum, state=OrderPayment.PAYMENT_STATE_CREATED,
+            info=json.dumps({
+                'pos_id': 'AndinaTickets · Boletería', 'receipt_id': '{} · {}'.format(label, seller),
+                'payment_type': method, 'payment_data': {}, 'medio': method, 'vendedor': seller,
+            }),
+        )
+        try:
+            payment.confirm(user=user, send_mail=False, ignore_date=True)
+        except Quota.QuotaExceededException as e:
+            raise ValidationError('{}: {}'.format(p.secret, e))
+        total += payment.amount
+    return positions, total
+
+
+def cancel_unsold(event, subevent, user):
+    """Anula los boletos de papel de venta que no se vendieron (fin de la función). Devuelve cuántos."""
+    orders = Order.objects.filter(
+        event=event, sales_channel__identifier=CHANNEL_IDENTIFIER, status=Order.STATUS_PENDING,
         all_positions__subevent=subevent,
-    ).distinct().order_by('-datetime')
+    ).distinct()
+    n = 0
+    for order in orders:
+        n += order.positions.count()
+        _cancel_order(order.pk, user, send_mail=False)
+    return n
+
+
+def box_office_summary(event, subevent):
+    """Caja de la boletería en esta fecha: lo vendido por medio de pago y por vendedor."""
+    payments = OrderPayment.objects.filter(
+        order__event=event, order__sales_channel__identifier=CHANNEL_IDENTIFIER, provider='boxoffice',
+        state=OrderPayment.PAYMENT_STATE_CONFIRMED, order__all_positions__subevent=subevent,
+    ).distinct().select_related('order')
+    labels = dict(PAYMENT_METHODS)
+    by_method, by_seller = {}, {}
+    total = Decimal('0.00')
+    for pay in payments:
+        info = pay.info_data
+        for key, target in ((labels.get(info.get('medio'), 'Otro'), by_method),
+                            (info.get('vendedor') or '—', by_seller)):
+            row = target.setdefault(key, {'name': key, 'tickets': 0, 'total': Decimal('0.00')})
+            row['tickets'] += pay.order.positions.count()
+            row['total'] += pay.amount
+        total += pay.amount
+    return {
+        'by_method': sorted(by_method.values(), key=lambda r: r['name']),
+        'by_seller': sorted(by_seller.values(), key=lambda r: r['name']),
+        'total': total,
+        'tickets': sum(r['tickets'] for r in by_method.values()),
+    }
 
 
 def cancel_ticket(position, user):

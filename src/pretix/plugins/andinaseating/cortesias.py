@@ -78,8 +78,8 @@ def send_mail(order, user=None):
 def create_courtesy(event, subevent, user, name, email='', seats=None, item=None, quantity=0):
     """Crea la cortesía y, si hay email, le manda las entradas. Devuelve el pedido."""
     channel = enable_for_event(event, COURTESY_CHANNEL)
-    order = run_import(event, subevent, user, channel, rows_for(seats, item, quantity),
-                       '{}: {}'.format(COMMENT, name), courtesy=True, email=email)
+    _lote, (order,) = run_import(event, subevent, user, channel, rows_for(seats, item, quantity),
+                                 '{}: {}'.format(COMMENT, name), courtesy=True, email=email)
     parts = name_parts(event, name)
     for p in order.positions.all():
         p.attendee_name_parts = parts

@@ -1,6 +1,7 @@
 {% extends "pretixcontrol/event/base.html" %}
 {% load static %}
 {% load bootstrap3 %}
+{% load money %}
 {% block title %}Boletería :: {{ request.event.name }}{% endblock %}
 {% block custom_header %}
     {{ block.super }}
@@ -32,20 +33,75 @@
         <div class="alert alert-danger">{{ e }}</div>
     {% endfor %}
 
+    <div class="row">
+        <div class="col-md-7">
+            <form method="post" class="panel panel-primary">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="sell">
+                {% if subevent %}<input type="hidden" name="fecha" value="{{ subevent.pk }}">{% endif %}
+                <div class="panel-heading"><h3 class="panel-title"><span class="fa fa-money"></span> Vender boletos de papel</h3></div>
+                <div class="panel-body">
+                    <p class="text-muted small">
+                        Un boleto de venta entra en la puerta recién cuando se vende acá. Escaneá los boletos que
+                        se lleva el cliente, elegí cómo pagó y tocá Vender.
+                    </p>
+                    {% bootstrap_form sell_form layout="horizontal" %}
+                </div>
+                <div class="panel-footer text-right">
+                    <button type="submit" class="btn btn-primary btn-lg"><span class="fa fa-check"></span> Vender</button>
+                </div>
+            </form>
+        </div>
+        <div class="col-md-5">
+            <div class="panel panel-default">
+                <div class="panel-heading"><h3 class="panel-title">Caja de la boletería{% if subevent %} (esta fecha){% endif %}</h3></div>
+                <table class="table table-condensed">
+                    <tbody>
+                    {% for r in summary.by_method %}
+                        <tr><td>{{ r.name }}</td><td class="text-right">{{ r.tickets }} boleto{{ r.tickets|pluralize }}</td><td class="text-right">{{ r.total|money:request.event.currency }}</td></tr>
+                    {% empty %}
+                        <tr><td class="text-muted"><em>Todavía no se vendió nada en la boletería.</em></td></tr>
+                    {% endfor %}
+                    </tbody>
+                    {% if summary.by_method %}
+                        <tfoot><tr><th>Total cobrado</th><th class="text-right">{{ summary.tickets }}</th><th class="text-right">{{ summary.total|money:request.event.currency }}</th></tr></tfoot>
+                    {% endif %}
+                </table>
+                {% if summary.by_seller|length > 1 %}
+                    <div class="panel-body small">
+                        <strong>Por boletero:</strong>
+                        {% for r in summary.by_seller %}{{ r.name }}: {{ r.tickets }} ({{ r.total|money:request.event.currency }}){% if not forloop.last %} · {% endif %}{% endfor %}
+                    </div>
+                {% endif %}
+                <div class="panel-footer small">
+                    Boletos de papel: <strong>{{ paper.sold }}</strong> vendidos · <strong>{{ paper.unsold }}</strong> sin vender
+                    · {{ paper.courtesies }} de cortesía{% if paper.canceled %} · {{ paper.canceled }} anulados{% endif %}
+                    {% if paper.unsold %}
+                        <details class="andinaseating-confirm">
+                            <summary class="btn btn-default btn-xs">Anular los sin vender</summary>
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="cancel_unsold">
+                                {% if subevent %}<input type="hidden" name="fecha" value="{{ subevent.pk }}">{% endif %}
+                                <button type="submit" class="btn btn-danger btn-xs">Sí, anular {{ paper.unsold }}</button>
+                            </form>
+                        </details>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
     {% if has_plan %}
         <div class="row">
-            <div class="col-sm-3 col-xs-6"><div class="panel panel-default"><div class="panel-body text-center">
+            <div class="col-sm-4"><div class="panel panel-default"><div class="panel-body text-center">
                 <div class="h2">{{ stats.total }}</div>butacas
             </div></div></div>
-            <div class="col-sm-3 col-xs-6"><div class="panel panel-default"><div class="panel-body text-center">
+            <div class="col-sm-4"><div class="panel panel-default"><div class="panel-body text-center">
                 <div class="h2">{{ stats.online }}</div>libres online
             </div></div></div>
-            <div class="col-sm-3 col-xs-6"><div class="panel panel-default"><div class="panel-body text-center">
+            <div class="col-sm-4"><div class="panel panel-default"><div class="panel-body text-center">
                 <div class="h2">{{ stats.reserved }}</div>reservadas sin boleto
-            </div></div></div>
-            <div class="col-sm-3 col-xs-6"><div class="panel panel-default"><div class="panel-body text-center">
-                <div class="h2">{{ stats.tickets }}</div>boletos cargados
-                {% if stats.courtesies %}<div class="small text-muted">{{ stats.courtesies }} de cortesía</div>{% endif %}
             </div></div></div>
         </div>
 
@@ -95,8 +151,9 @@
                     <code>0001234567;J;1</code><br>
                     <code>0001234568;J;2</code><br>
                     El código tiene que ser exactamente lo que lee el escáner en el boleto (número o código de
-                    barras). Las butacas cargadas quedan reservadas para boletería. Si algo está mal, no se carga
-                    ningún boleto y te mostramos qué corregir.<br>
+                    barras). Las butacas cargadas quedan reservadas para boletería. Los boletos de venta entran en
+                    la puerta recién cuando se venden (arriba, "Vender boletos de papel"); las cortesías, desde que
+                    se cargan. Si algo está mal, no se carga ningún boleto y te mostramos qué corregir.<br>
                     Las ventas y las cortesías se cargan en archivos separados: un archivo para los boletos que
                     se venden y otro para los de regalo.
                 </div>
@@ -145,16 +202,18 @@
         </div>
         {% if generated %}
             <table class="table table-condensed">
-                <thead><tr><th>Paquetes generados</th><th>Boletos</th><th>Tipo</th><th>Fecha</th><th></th></tr></thead>
+                <thead><tr><th>Paquetes generados</th><th>Tipo</th><th>Boletos</th><th>Vendidos</th><th>Sin vender</th><th>Generado</th><th></th></tr></thead>
                 <tbody>
                 {% for g in generated %}
                     <tr>
-                        <td><a href="{% url "control:event.order" organizer=request.organizer.slug event=request.event.slug code=g.order.code %}">{{ g.order.code }}</a></td>
-                        <td>{{ g.count }}</td>
+                        <td>Lote <code>{{ g.lote }}</code></td>
                         <td>{% if g.courtesy %}<span class="label label-info">Cortesía</span>{% else %}Venta{% endif %}</td>
-                        <td>{{ g.order.datetime|date:"SHORT_DATETIME_FORMAT" }}</td>
+                        <td>{{ g.count }}{% if g.canceled %} <span class="text-muted">({{ g.canceled }} anulado{{ g.canceled|pluralize }})</span>{% endif %}</td>
+                        <td>{% if g.courtesy %}—{% else %}{{ g.sold }}{% endif %}</td>
+                        <td>{% if g.courtesy %}—{% else %}{{ g.pending }}{% endif %}</td>
+                        <td>{{ g.datetime|date:"SHORT_DATETIME_FORMAT" }}</td>
                         <td class="text-right">
-                            <a class="btn btn-default btn-xs" href="{% url "plugins:andinaseating:boleteria.paquete" organizer=request.organizer.slug event=request.event.slug code=g.order.code %}">
+                            <a class="btn btn-default btn-xs" href="{% url "plugins:andinaseating:boleteria.paquete" organizer=request.organizer.slug event=request.event.slug lote=g.lote %}">
                                 <span class="fa fa-download"></span> Paquete para la imprenta (ZIP)
                             </a>
                         </td>
@@ -191,13 +250,15 @@
                             <td>{% if p.price == 0 %}<span class="label label-info">Cortesía</span>{% else %}Venta{% endif %}</td>
                             <td>{% if p.generated %}Generado{% else %}De la imprenta{% endif %}</td>
                             <td>
-                                {% if p.canceled %}Anulado
+                                {% if p.state == "anulado" %}Anulado
                                 {% elif p.checkins.all %}<span class="text-success"><span class="fa fa-check"></span> Ingresó</span>
+                                {% elif p.state == "sin vender" %}<span class="label label-warning">Sin vender</span>
+                                {% elif p.state == "vendido" %}Vendido
                                 {% else %}Válido{% endif %}
                             </td>
                             <td><a href="{% url "control:event.order" organizer=request.organizer.slug event=request.event.slug code=p.order.code %}">{{ p.order.code }}</a></td>
                             <td class="text-right">
-                                {% if not p.canceled %}
+                                {% if p.state != "anulado" %}
                                     <details class="andinaseating-confirm">
                                         <summary class="btn btn-default btn-xs">Anular</summary>
                                         <form method="post">

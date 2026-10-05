@@ -4,6 +4,8 @@
 #
 from django import forms
 
+from .boleteria import PAYMENT_METHODS
+
 
 class SalaForm(forms.Form):
     name = forms.CharField(label='Nombre de la sala', max_length=190,
@@ -58,6 +60,17 @@ class TicketsUploadForm(forms.Form):
         if f.size > 2 * 1024 * 1024:
             raise forms.ValidationError('El archivo es demasiado grande (máximo 2 MB).')
         return f
+
+
+class SellForm(forms.Form):
+    codes = forms.CharField(
+        label='Códigos de los boletos',
+        widget=forms.Textarea(attrs={'rows': 3, 'autofocus': 'autofocus', 'autocomplete': 'off',
+                                     'placeholder': 'Escaneá el boleto (o escribí el código). Uno por línea.'}),
+        help_text='Con el lector se escanean uno tras otro: cada boleto queda en su renglón.',
+    )
+    method = forms.ChoiceField(label='Medio de pago', initial='efectivo', widget=forms.RadioSelect,
+                               choices=PAYMENT_METHODS)
 
 
 class PickForm(forms.Form):

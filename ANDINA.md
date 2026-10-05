@@ -38,6 +38,14 @@ Cada carga o generación es de **venta** (al precio del producto) o de **cortes�
 $0). Una cortesía es simplemente una entrada de precio 0, sin campos extra: así la reconocen la
 Boletería y el portal del productor.
 
+Los boletos de papel de **venta se activan al venderlos**: cada uno es un pedido pendiente
+(no entra en la puerta) hasta que el boletero lo vende en "Vender boletos de papel"
+(`sell_tickets`, todo o nada). Ahí queda pagado con el medio de pago "Boletería"
+(`boxoffice`) de pretix, con el medio (efectivo, débito, crédito, transferencia) y quién
+vendió; la "Caja de la boletería" suma por medio y por boletero. Los que no se vendieron
+vencen al día siguiente de la función, o se anulan con "Anular los sin vender". Las
+cortesías de papel son válidas desde que se cargan.
+
 Cortesías digitales:
 
 - **Cortesías** (`cortesias.py`): el organizador elige a quién y qué butacas; es un pedido de

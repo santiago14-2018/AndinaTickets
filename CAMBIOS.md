@@ -24,6 +24,14 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 
 ## 2026-10-05
 
+- [PROPIO] Boletería: los boletos de papel de **venta se activan al venderlos** (generados o
+  traídos por la imprenta). Hasta que el boletero los vende no entran en la puerta: un boleto
+  perdido sin vender no sirve. Panel "Vender boletos de papel" (se escanean uno tras otro, se
+  elige el medio de pago; todo o nada), "Caja de la boletería" por medio de pago y por
+  boletero, estado de cada boleto (sin vender, vendido, válido, anulado) y "Anular los sin
+  vender". Cada boleto de venta es su propio pedido; vence al día siguiente de la función. El
+  informe del productor cuenta solo lo vendido. El paquete para la imprenta se arma por lote.
+  7 pruebas nuevas (`test_venta_boleteria.py`): 57 en total.
 - [PROPIO] Boletería: **generar boletos para la imprenta**. AndinaTickets crea los códigos
   (con butacas elegidas en el plano o, sin numerar, por cantidad) y arma un paquete ZIP:
   entradas en PDF listas para imprimir, un QR por boleto (PNG), planilla y LEEME para la
@@ -37,7 +45,7 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
   las cuenta como cortesías digitales. Avisa si el evento no permite descargar entradas.
 - [PROPIO] `boleteria.py`: una sola función (`run_import`) para crear entradas con el
   importador de pedidos; la usan la carga de la imprenta, la generación y las cortesías.
-- [PROPIO] 17 pruebas nuevas (`test_imprenta.py`, `test_cortesias.py`): 50 en total.
+- [PROPIO] 17 pruebas nuevas (`test_imprenta.py`, `test_cortesias.py`).
 - [PROPIO] Datos: en DEMO – Hamlet y DEMO – Noches de Risa se activó la descarga de entradas en
   PDF (venía apagada, como en pretix por defecto): sin eso los compradores no reciben la
   entrada. Es configuración en la base, no código.
