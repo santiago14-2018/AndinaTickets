@@ -214,7 +214,7 @@
                         <td>{{ g.datetime|date:"SHORT_DATETIME_FORMAT" }}</td>
                         <td class="text-right">
                             <a class="btn btn-default btn-xs" href="{% url "plugins:andinaseating:boleteria.paquete" organizer=request.organizer.slug event=request.event.slug lote=g.lote %}">
-                                <span class="fa fa-download"></span> Paquete para la imprenta (ZIP)
+                                <span class="fa fa-download"></span> Descargar ZIP
                             </a>
                         </td>
                     </tr>
@@ -244,7 +244,7 @@
                     <tbody>
                     {% for p in positions %}
                         <tr{% if p.canceled %} class="text-muted"{% endif %}>
-                            <td><code>{{ p.secret }}</code></td>
+                            <td class="andinaseating-code"><code>{{ p.secret }}</code></td>
                             <td>{% if p.seat %}{{ p.seat }}{% else %}—{% endif %}</td>
                             <td>{{ p.item.name }}</td>
                             <td>{% if p.price == 0 %}<span class="label label-info">Cortesía</span>{% else %}Venta{% endif %}</td>

@@ -342,7 +342,9 @@ def generated_lotes(event, subevent):
             g['pending'] += 1
         else:
             g['canceled'] += 1
-    return sorted(lotes.values(), key=lambda g: g['datetime'], reverse=True)
+    # Un lote anulado entero ya no sirve para nada: no se muestra.
+    return sorted((g for g in lotes.values() if g['canceled'] < g['count']),
+                  key=lambda g: g['datetime'], reverse=True)
 
 
 # ---------------------------------------------------------------- vender en el mostrador

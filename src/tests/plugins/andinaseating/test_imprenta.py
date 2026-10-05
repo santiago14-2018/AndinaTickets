@@ -147,7 +147,7 @@ def test_pantalla_genera_y_descarga_el_paquete(env, client):
     assert r.status_code == 200
     content = r.content.decode()
     assert 'Se generaron 3 boletos de cortesía' in content
-    assert 'Paquete para la imprenta (ZIP)' in content
+    assert 'Descargar el paquete para la imprenta' in content and 'Descargar ZIP' in content
     with scopes_disabled():
         order = Order.objects.get(event=event, comment__startswith='Boletos generados para la imprenta')
     lote = order.comment.rsplit(' ', 1)[-1]

@@ -13,6 +13,11 @@
 .andinaseating-confirm form {
     display: inline-block;
 }
+/* Los códigos generados tienen 32 caracteres: que se partan para que la tabla entre en el panel. */
+.andinaseating-code {
+    max-width: 8em;
+    word-break: break-all;
+}
 .andinaseating-inline {
     display: inline-block;
     margin-right: 4px;

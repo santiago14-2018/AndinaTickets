@@ -24,6 +24,11 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 
 ## 2026-10-05
 
+- [PROPIO] Boletería, ajustes de pantalla: los códigos largos de la tabla de boletos se parten
+  en dos renglones (la tabla entra en el panel), el botón de "Paquetes generados" dice
+  "Descargar ZIP", y los lotes anulados enteros ya no se listan.
+- [PROPIO] Documentación (en `privado/documentacion/`, no va a Git): Manual de usuario v4 y guía
+  técnica v5, con la boletería, la venta en el mostrador, las cortesías y la descarga de entradas.
 - [PROPIO] Boletería: los boletos de papel de **venta se activan al venderlos** (generados o
   traídos por la imprenta). Hasta que el boletero los vende no entran en la puerta: un boleto
   perdido sin vender no sirve. Panel "Vender boletos de papel" (se escanean uno tras otro, se
