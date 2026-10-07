@@ -22,6 +22,12 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 
 ---
 
+## 2026-10-07
+
+- [PROPIO] `docker-compose.dev.yml`: la dirección del sistema se puede cambiar con `ANDINA_URL` en
+  `deployment/docker/.env` (Git lo ignora; por defecto sigue `http://localhost:8130`). Hace falta
+  para conectar celulares de la red local con pretixSCAN: el QR de conexión lleva esa dirección.
+
 ## 2026-10-05
 
 - [PROPIO] Boletería, ajustes de pantalla: los códigos largos de la tabla de boletos se parten

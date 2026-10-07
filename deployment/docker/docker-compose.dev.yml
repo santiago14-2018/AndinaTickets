@@ -70,8 +70,10 @@ services:
       PRETIX_LOCALE_DEFAULT: es
       PRETIX_LOCALE_TIMEZONE: America/Argentina/Buenos_Aires
       # Dirección pública del sistema (sección [pretix] url): con ella se arman los
-      # links del panel y de los correos. Tiene que coincidir con el puerto de afuera.
-      PRETIX_PRETIX_URL: http://localhost:8130
+      # links del panel y de los correos, y el QR para conectar escáneres (pretixSCAN).
+      # Tiene que coincidir con el puerto de afuera. Para usar celulares de la red local,
+      # poné ANDINA_URL=http://<IP de esta PC>:8130 en deployment/docker/.env (Git lo ignora).
+      PRETIX_PRETIX_URL: ${ANDINA_URL:-http://localhost:8130}
       DATA_DIR: /data
     volumes:
       - ../../src:/pretix/src
@@ -112,7 +114,7 @@ services:
       PRETIX_MAIL_PORT: "1025"
       PRETIX_LOCALE_DEFAULT: es
       PRETIX_LOCALE_TIMEZONE: America/Argentina/Buenos_Aires
-      PRETIX_PRETIX_URL: http://localhost:8130
+      PRETIX_PRETIX_URL: ${ANDINA_URL:-http://localhost:8130}
       DATA_DIR: /data
     volumes:
       - ../../src:/pretix/src
