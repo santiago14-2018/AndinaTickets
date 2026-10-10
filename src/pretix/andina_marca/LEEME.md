@@ -26,7 +26,7 @@ que los archivos de pretix quedan intactos y las actualizaciones de pretix no ch
 3. En el navegador, recargar con **Ctrl+F5** (guarda las imágenes viejas un tiempo).
 
 Usar el mismo ícono en la cartelera (`AndinaTickets-Cartelera`: `public/favicon.svg` y la cabecera
-en `src/layouts/Base.astro`) y en la app de la puerta (`AndinaTickets-Puerta`:
+en `src/layouts/Base.astro`) y en la app de la puerta (`AndinaScan-Android`:
 `andina/marca/generar.py`).
 
 El nombre del sistema que aparece en la pestaña, en el remitente y en los correos es
