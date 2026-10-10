@@ -223,6 +223,11 @@ Reglas para que un programa sea de la caja 3:
   marketing (casilla en la compra), base protegida y registrada, y forma de darse de baja.
 - No duplicar lo que pretix ya trae libre: lista de espera, widget para webs de productores,
   app de control de acceso (pretixSCAN) y exportaciones básicas.
+  - Excepción: **AndinaScan** (repositorio privado `AndinaScan-Android`) es una versión propia de
+    pretixSCAN, porque la original leía mal los QR en la puerta (3 a 10 segundos por entrada).
+    pretixSCAN tiene licencia Apache 2.0, que permite una versión privada con otro nombre si se
+    conservan la licencia y los avisos. No es caja 3 en sentido estricto (parte del código de
+    pretix), pero sí habla con AndinaTickets solo por la API, como pretixSCAN.
 
 La lista de ideas y el orden en que se piensan hacer son plan de negocio (caja 2): están en
 `privado/PlanDeNegocios.md`, que no se sube a Git.

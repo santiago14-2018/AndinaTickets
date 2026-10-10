@@ -56,6 +56,7 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 - [PROPIO] Logos con el nombre dibujado con la letra de la marca (en curvas: se ve igual aunque la
   computadora no tenga la letra). `generar_marca.py` ahora corre en un contenedor aparte.
 - [PROPIO] Se borró el APK de prueba del lector (`static/andina_apk/`): el aro de enfoque funciona.
+- [PROPIO] `ANDINA.md`: AndinaScan anotada como excepción a "no duplicar lo que pretix trae libre".
 
 ## 2026-10-07
 
