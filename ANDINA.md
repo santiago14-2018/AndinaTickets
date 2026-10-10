@@ -129,7 +129,11 @@ Revisar esta lista en cada actualización desde pretix.
 | `src/pretix/settings.py` | Nombre del sistema por defecto `AndinaTickets` (era `pretix.de`) | Título de la pestaña, remitente y textos de los correos |
 | `src/pretix/static/pretixbase/scss/_theme_variables.scss`, `_bootstrap_vars.scss`, `colors.scss`, `static/rest_framework/scss/_variables.scss` | Violetas de la marca (`#5b2a73`, barra `#3e1b4f`) | Colores del panel, el login y la tienda |
 | `theme-color` en `pretixcontrol/base.html`, `pretixcontrol/auth/base.html`, `pretixpresale/base.html`, `base/views/webmanifest.py` y `statistics.js` | `#3b1c4a` → `#3e1b4f` | Color de la barra del navegador en el celular y de los gráficos |
-| `src/pretix/base/templates/pretixbase/email/base.html` y `simple_logo.html` | Franja violeta arriba en lugar del semicírculo, fondo lila | Estética propia de los correos |
+| `src/pretix/base/templates/pretixbase/email/base.html` y `simple_logo.html` | Franja violeta arriba en lugar del semicírculo, fondo lila, letra de la marca | Estética propia de los correos |
+| `src/pretix/_base_settings.py` | `'pretix.andina_marca'` en `INSTALLED_APPS`; `ANDINA_CARTELERA_URL` | Registrar la letra de la marca; link de la barra de la tienda |
+| `src/pretix/static/pretixbase/scss/webfont.scss`, `pretixcontrol/scss/auth.scss`, `pretixbase/scss/error.scss` | `@font-face` de Bricolage Grotesque; el login y las páginas de error cargan la letra | Letra de la marca en todas las pantallas |
+| `src/pretix/base/settings.py` | Letra por defecto de tiendas (`primary_font`) y facturas (`invoice_renderer_font`): Bricolage Grotesque | Letra de la marca |
+| `src/pretix/presale/templates/pretixpresale/base.html` | Incluye `andina_marca/barra_tienda.html` | La tienda muestra siempre AndinaTickets arriba |
 | `src/pretix/locale/es/LC_MESSAGES/django.po` | Se quitó un `<a` sobrante al final de "impulsado por {name} … basado en pretix" | Error de la traducción de pretix: rompía el pie de página |
 
 ## Remotos de Git

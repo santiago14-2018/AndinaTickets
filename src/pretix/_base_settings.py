@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     'pretix.plugins.andinaseating',
     'pretix.plugins.andinamercadopago',
     'pretix.plugins.andinaproductores',
+    'pretix.andina_marca',
     'django_countries',
     'oauth2_provider',
     'phonenumber_field',
@@ -140,6 +141,8 @@ LANGUAGES = ALL_LANGUAGES
 # AndinaTickets: la marca propia (íconos, logos, plantillas y textos) vive en pretix/andina_marca/
 # y se busca antes que lo de pretix, así se reemplaza sin tocar los archivos originales.
 ANDINA_MARCA_DIR = os.path.join(os.path.dirname(__file__), 'andina_marca')
+# Dirección de la cartelera (sitio aparte): el logo de la barra de la tienda lleva ahí.
+ANDINA_CARTELERA_URL = os.environ.get('ANDINA_CARTELERA_URL', '')
 
 LOCALE_PATHS = [
     os.path.join(ANDINA_MARCA_DIR, 'locale'),

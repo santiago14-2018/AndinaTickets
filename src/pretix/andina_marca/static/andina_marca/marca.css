@@ -1,0 +1,11 @@
+/* AndinaTickets: barra de la marca arriba de la tienda (andina_marca/templates/andina_marca/barra_tienda.html) */
+.andina-barra { background: #fff; border-bottom: 1px solid #ece6f0; margin-bottom: 20px; }
+.andina-barra .container { display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding-top: 12px; padding-bottom: 12px; flex-wrap: wrap; }
+/* El "clearfix" de Bootstrap (::before/::after) contaría como elementos de la fila. */
+.andina-barra .container::before, .andina-barra .container::after { display: none; }
+.andina-barra-marca { display: inline-flex; min-height: 44px; align-items: center; }
+.andina-barra-marca img { height: 34px; width: auto; display: block; }
+.andina-barra-cartelera { font-weight: 600; color: #5b2a73; text-decoration: none;
+    min-height: 44px; display: inline-flex; align-items: center; }
+.andina-barra-cartelera:hover, .andina-barra-cartelera:focus { color: #3e1b4f; text-decoration: underline; }

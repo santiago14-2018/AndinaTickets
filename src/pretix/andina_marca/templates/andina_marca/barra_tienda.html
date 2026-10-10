@@ -1,0 +1,17 @@
+{% load static %}
+{% comment %}
+    AndinaTickets: barra de arriba en todas las páginas de la tienda, para que siempre se vea la marca
+    (la tienda de cada productora sigue mostrando debajo su nombre o su logo). El logo lleva a la
+    cartelera (ANDINA_CARTELERA_URL); si no está configurada, a la página de inicio.
+{% endcomment %}
+<div class="andina-barra hidden-print">
+    <div class="container">
+        <a class="andina-barra-marca" href="{{ django_settings.ANDINA_CARTELERA_URL|default:"/" }}">
+            <img src="{% static "pretixbase/img/pretix-logo.svg" %}" alt="{{ django_settings.PRETIX_INSTANCE_NAME }}" height="34">
+        </a>
+        {% if django_settings.ANDINA_CARTELERA_URL %}
+            <a class="andina-barra-cartelera" href="{{ django_settings.ANDINA_CARTELERA_URL }}">Ver todos los eventos</a>
+        {% endif %}
+    </div>
+</div>
+<link rel="stylesheet" href="{% static "andina_marca/marca.css" %}">

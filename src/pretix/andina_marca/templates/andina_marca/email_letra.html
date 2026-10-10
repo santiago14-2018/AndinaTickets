@@ -1,0 +1,9 @@
+{% load static %}{# AndinaTickets: letra de la marca en los correos. "keep" hace que no se borre al pasar los estilos a cada etiqueta. Los programas que no cargan letras (Gmail) usan la siguiente de la lista. #}
+<style type="text/css" data-css-inline="keep">
+@font-face {
+    font-family: 'Bricolage Grotesque';
+    src: url('{{ site_url }}{% static "fonts/bricolage/BricolageGrotesque.woff2" %}') format('woff2');
+    font-weight: 200 800;
+    font-style: normal;
+}
+</style>

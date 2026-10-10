@@ -845,7 +845,7 @@ DEFAULTS = {
         )
     },
     'invoice_renderer_font': {
-        'default': 'Open Sans',
+        'default': 'Bricolage Grotesque',  # AndinaTickets: letra de la marca (pretix: Open Sans)
         'type': str,
         'form_class': forms.ChoiceField,
         'serializer_class': serializers.ChoiceField,
@@ -3219,7 +3219,7 @@ Your {organizer} team"""))  # noqa: W291
         )
     },
     'primary_font': {
-        'default': 'Open Sans',
+        'default': 'Bricolage Grotesque',  # AndinaTickets: letra de la marca (pretix: Open Sans)
         'type': str,
         'form_class': forms.ChoiceField,
         'serializer_class': serializers.ChoiceField,

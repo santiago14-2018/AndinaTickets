@@ -38,6 +38,24 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 - [PRETIX] Correos (`pretixbase/email/base.html` y `simple_logo.html`): franja violeta arriba en
   lugar del semicírculo de "boleto" de pretix, y fondo lila.
 - [PROPIO] `docker-compose.dev.yml`: remitente `andinatickets@localhost` (era `pretix@localhost`).
+- [TERCEROS] Letra de la marca **Bricolage Grotesque** (licencia SIL OFL 1.1, de Google Fonts) en
+  `andina_marca/static/fonts/bricolage/`: la variable completa en `.woff2` para el navegador y
+  versiones fijas `.ttf` para los PDF, con su `OFL.txt`.
+- [PROPIO] `andina_marca` pasa a ser también una app (`pretix.andina_marca` en `INSTALLED_APPS`)
+  que registra la letra en pretix (se puede elegir en tiendas, boletos y facturas) y hace que los
+  diseños de boleto nuevos salgan con ella. Los tres diseños de boleto de los eventos de prueba
+  se pasaron a la letra nueva.
+- [PRETIX] La letra de la marca en todos lados: `webfont.scss` (se agrega), `_theme_variables.scss`
+  (letra por defecto del panel y la tienda), `auth.scss` y `error.scss` (ahora cargan la letra),
+  `base/settings.py` (letra por defecto de tiendas y facturas) y los correos (`email/base.html`,
+  `simple_logo.html`, con la letra descargada de nuestro servidor; si el programa de correo no la
+  carga, usa una parecida).
+- [PRETIX] `pretixpresale/base.html`: barra con el logo de AndinaTickets arriba de toda la tienda
+  (`andina_marca/templates/andina_marca/barra_tienda.html`, estilo en `andina_marca/marca.css`);
+  lleva a la cartelera (`ANDINA_CARTELERA_URL` en `docker-compose.dev.yml` y en el `.env`).
+- [PROPIO] Logos con el nombre dibujado con la letra de la marca (en curvas: se ve igual aunque la
+  computadora no tenga la letra). `generar_marca.py` ahora corre en un contenedor aparte.
+- [PROPIO] Se borró el APK de prueba del lector (`static/andina_apk/`): el aro de enfoque funciona.
 
 ## 2026-10-07
 

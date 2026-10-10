@@ -79,6 +79,8 @@ services:
       # Tiene que coincidir con el puerto de afuera. Para usar celulares de la red local,
       # poné ANDINA_URL=http://<IP de esta PC>:8130 en deployment/docker/.env (Git lo ignora).
       PRETIX_PRETIX_URL: ${ANDINA_URL:-http://localhost:8130}
+      # Dirección de la cartelera (repositorio aparte): el logo de arriba de la tienda lleva ahí.
+      ANDINA_CARTELERA_URL: ${ANDINA_CARTELERA_URL:-http://localhost:4330}
       DATA_DIR: /data
     volumes:
       - ../../src:/pretix/src
@@ -121,6 +123,8 @@ services:
       PRETIX_LOCALE_DEFAULT: es
       PRETIX_LOCALE_TIMEZONE: America/Argentina/Buenos_Aires
       PRETIX_PRETIX_URL: ${ANDINA_URL:-http://localhost:8130}
+      # Dirección de la cartelera (repositorio aparte): el logo de arriba de la tienda lleva ahí.
+      ANDINA_CARTELERA_URL: ${ANDINA_CARTELERA_URL:-http://localhost:4330}
       DATA_DIR: /data
     volumes:
       - ../../src:/pretix/src

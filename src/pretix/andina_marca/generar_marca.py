@@ -6,12 +6,21 @@ Los archivos salen en andina_marca/static/ con los mismos nombres que usa pretix
 se muestran los nuestros sin tocar los originales.
 
 El ícono es PROVISORIO (montañas blancas sobre violeta) hasta que esté el logo.
-Para cambiar colores o nombre, editar las constantes de abajo y volver a correr:
+Para cambiar colores o nombre, editar las constantes de abajo y volver a correr (desde la carpeta
+del repositorio; usa un contenedor descartable con Pillow, fontTools y uharfbuzz):
 
-    docker exec andina-tickets-web-1 python /pretix/src/pretix/andina_marca/generar_marca.py
+    MSYS_NO_PATHCONV=1 docker run --rm -v "$PWD/src/pretix/andina_marca:/marca" python:3.13-slim \
+        sh -c "pip install -q pillow fonttools uharfbuzz && python /marca/generar_marca.py"
+
+En los SVG el nombre va convertido en dibujo (curvas), así se ve con la letra de la marca aunque
+la computadora no la tenga instalada.
 """
 import os
 
+import uharfbuzz as hb
+from fontTools.pens.svgPathPen import SVGPathPen
+from fontTools.pens.transformPen import TransformPen
+from fontTools.ttLib import TTFont
 from PIL import Image, ImageDraw, ImageFont
 
 NOMBRE = 'AndinaTickets'
@@ -22,8 +31,9 @@ AVISO = '#e8870e'  # punto naranja del ícono de desarrollo
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(AQUI, 'static')
-LETRA = os.path.join(AQUI, '..', 'static', 'fonts', 'OpenSans-Bold.ttf')
-LETRA_SVG = "'Bricolage Grotesque', 'Segoe UI', 'Open Sans', Arial, sans-serif"
+# Letra de la marca (Bricolage Grotesque, licencia OFL), versión fija ExtraBold.
+LETRA = os.path.join(STATIC, 'fonts', 'bricolage', 'BricolageGrotesque-ExtraBold.ttf')
+ESPACIADO = -0.02  # en "em", como el nombre en la cartelera
 
 # Dibujo en una grilla de 100 x 100: cuadrado redondeado y dos cerros.
 RADIO = 22
@@ -49,16 +59,42 @@ def svg_icono(fondo, cerros):
             '{}{}</svg>\n'.format(caja, svg_cerros(cerros)))
 
 
+def svg_texto(texto, x, linea_base, tam):
+    """Devuelve (curvas SVG del texto, ancho) con la letra de la marca, con su interletrado."""
+    with open(LETRA, 'rb') as f:
+        datos = f.read()
+    fuente = TTFont(LETRA)
+    glifos = fuente.getGlyphSet()
+    upm = fuente['head'].unitsPerEm
+    buf = hb.Buffer()
+    buf.add_str(texto)
+    buf.guess_segment_properties()
+    hb.shape(hb.Font(hb.Face(datos)), buf, {'kern': True, 'liga': True})
+    escala = tam / upm
+    nombres = fuente.getGlyphOrder()
+    caminos = []
+    avance = 0
+    for info, pos in zip(buf.glyph_infos, buf.glyph_positions):
+        pen = SVGPathPen(glifos, ntos=lambda v: ("%.2f" % v).rstrip("0").rstrip("."))
+        # Las letras tienen el eje Y hacia arriba; el SVG, hacia abajo.
+        t = (escala, 0, 0, -escala, x + (avance + pos.x_offset) * escala, linea_base - pos.y_offset * escala)
+        glifos[nombres[info.codepoint]].draw(TransformPen(pen, t))
+        caminos.append(pen.getCommands())
+        avance += pos.x_advance + ESPACIADO * upm
+    ancho = (avance - ESPACIADO * upm) * escala
+    return ' '.join(c for c in caminos if c), ancho
+
+
 def svg_logo(color_texto, fondo_icono, cerros):
-    # El texto se estira a un ancho fijo para que se vea igual con cualquier letra.
+    curvas, ancho = svg_texto(NOMBRE, 118, 70, 54)
     return (
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 100">'
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} 100">'
+        '<title>{nombre}</title>'
         '<rect width="100" height="100" rx="{radio}" fill="{fondo}"/>{cerros}'
-        '<text x="118" y="68" font-family="{letra}" font-weight="800" font-size="52" '
-        'letter-spacing="-1" textLength="398" lengthAdjust="spacingAndGlyphs" fill="{texto}">{nombre}</text>'
+        '<path d="{curvas}" fill="{texto}"/>'
         '</svg>\n'
-    ).format(radio=RADIO, fondo=fondo_icono, cerros=svg_cerros(cerros), letra=LETRA_SVG,
-             texto=color_texto, nombre=NOMBRE)
+    ).format(w=int(118 + ancho + 4), nombre=NOMBRE, radio=RADIO, fondo=fondo_icono,
+             cerros=svg_cerros(cerros), curvas=curvas, texto=color_texto)
 
 
 def escribir(nombre, contenido):
