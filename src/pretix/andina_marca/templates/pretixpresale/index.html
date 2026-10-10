@@ -1,0 +1,13 @@
+{% extends "pretixcontrol/auth/base.html" %}
+{% comment %}
+    AndinaTickets: página de inicio del sistema (la dirección sin nada más, por ejemplo http://localhost:8130/).
+    Reemplaza la de pretix ("This is a self-hosted installation of pretix...").
+{% endcomment %}
+{% block content %}
+    <div class="form-signin">
+        <h3>¡Hola!</h3>
+        <p>Esta es la boletería de {{ django_settings.PRETIX_INSTANCE_NAME }}.</p>
+        <p>Si querés comprar una entrada, entrá por el enlace del evento o de la cartelera.</p>
+        <p>Si organizás eventos con nosotros, <a href="/control/">ingresá al panel</a>.</p>
+    </div>
+{% endblock %}

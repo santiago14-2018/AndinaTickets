@@ -42,8 +42,8 @@ def webmanifest(request):
             "type": "image/png"
         }
     ],
-    "theme_color": "#3b1c4a",
-    "background_color": "#3b1c4a",
+    "theme_color": "#3e1b4f",
+    "background_color": "#3e1b4f",
     "display": "standalone"
 }""" % (
             static('pretixbase/img/icons/android-chrome-192x192.png'),

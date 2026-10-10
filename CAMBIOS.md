@@ -22,8 +22,28 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 
 ---
 
+## 2026-10-10
+
+- [PROPIO] Marca propia en `src/pretix/andina_marca/` (ver su `LEEME.md`), que Django busca antes
+  que lo de pretix: favicon de la pestaña, logos del login, del panel y de las páginas de error,
+  íconos del celular y logo de los boletos PDF (ícono provisorio de cerros blancos sobre violeta,
+  hecho por `generar_marca.py`); pie y línea separadora de los correos; página de inicio `/`; y las
+  36 frases en castellano que decían "pretix" por el sistema (`generar_textos.py`).
+- [PRETIX] `_base_settings.py`: `ANDINA_MARCA_DIR` primero en textos, plantillas y archivos
+  estáticos; color principal `#5b2a73` (correos y tiendas sin color propio). `settings.py`: nombre
+  del sistema por defecto "AndinaTickets" (era "pretix.de": salía en la pestaña, como remitente y
+  en los correos de cuenta y contraseña).
+- [PRETIX] Violetas de la marca en los `.scss` de pretix (`#5b2a73`, barra superior `#3e1b4f`) y en
+  el color de la barra del navegador (`theme-color`, manifiesto, gráficos de estadísticas).
+- [PRETIX] Correos (`pretixbase/email/base.html` y `simple_logo.html`): franja violeta arriba en
+  lugar del semicírculo de "boleto" de pretix, y fondo lila.
+- [PROPIO] `docker-compose.dev.yml`: remitente `andinatickets@localhost` (era `pretix@localhost`).
+
 ## 2026-10-07
 
+- [PROPIO] `docker-compose.dev.yml`: PostgreSQL con 300 conexiones (eran 100). Con escáneres
+  conectados, el servidor de desarrollo agotaba las conexiones (pretix las mantiene 2 minutos) y
+  la app recibía un error 500 al escanear ("too many clients already").
 - [PROPIO] `docker-compose.dev.yml`: la dirección del sistema se puede cambiar con `ANDINA_URL` en
   `deployment/docker/.env` (Git lo ignora; por defecto sigue `http://localhost:8130`). Hace falta
   para conectar celulares de la red local con pretixSCAN: el QR de conexión lleva esa dirección.

@@ -17,6 +17,7 @@ con Windows (y pasarle los datos), ver [INSTALAR.md](INSTALAR.md).
 | Cobro con Mercado Pago (Checkout Pro) | `src/pretix/plugins/andinamercadopago/` (plugin propio) |
 | Portal de solo lectura para productores | `src/pretix/plugins/andinaproductores/` (plugin propio) |
 | Librería de planos seatmap-canvas (MIT, compilada) | `src/pretix/plugins/andinaseating/static/pretixplugins/andinaseating/vendor/seatmap-canvas/` |
+| Marca (íconos, logos, plantillas de correo, textos con el nombre) | `src/pretix/andina_marca/` (ver su `LEEME.md`) |
 
 ### Plugin andinaseating: pantallas
 
@@ -124,6 +125,11 @@ Revisar esta lista en cada actualización desde pretix.
 | `src/pretix/_base_settings.py` | `'pretix.plugins.andinaseating'`, `'pretix.plugins.andinamercadopago'` y `'pretix.plugins.andinaproductores'` en `INSTALLED_APPS` | Cargar nuestros plugins |
 | `src/pretix/presale/views/event.py` | `itemnum` se cuenta antes de quitar los productos con butaca | Que un producto sin butaca no aparezca precargado con cantidad 1 junto al plano |
 | `src/pretix/presale/templates/pretixpresale/event/index.html` | Se pasa `add_to_cart_below` a la señal `render_seating_plan` | Mostrar un solo botón "Agregar al carrito" |
+| `src/pretix/_base_settings.py` | `ANDINA_MARCA_DIR` primero en `LOCALE_PATHS`, `TEMPLATES['DIRS']` y `STATICFILES_DIRS`; `PRETIX_PRIMARY_COLOR` = `#5b2a73` | La marca propia se superpone a la de pretix sin tocar sus archivos |
+| `src/pretix/settings.py` | Nombre del sistema por defecto `AndinaTickets` (era `pretix.de`) | Título de la pestaña, remitente y textos de los correos |
+| `src/pretix/static/pretixbase/scss/_theme_variables.scss`, `_bootstrap_vars.scss`, `colors.scss`, `static/rest_framework/scss/_variables.scss` | Violetas de la marca (`#5b2a73`, barra `#3e1b4f`) | Colores del panel, el login y la tienda |
+| `theme-color` en `pretixcontrol/base.html`, `pretixcontrol/auth/base.html`, `pretixpresale/base.html`, `base/views/webmanifest.py` y `statistics.js` | `#3b1c4a` → `#3e1b4f` | Color de la barra del navegador en el celular y de los gráficos |
+| `src/pretix/base/templates/pretixbase/email/base.html` y `simple_logo.html` | Franja violeta arriba en lugar del semicírculo, fondo lila | Estética propia de los correos |
 | `src/pretix/locale/es/LC_MESSAGES/django.po` | Se quitó un `<a` sobrante al final de "impulsado por {name} … basado en pretix" | Error de la traducción de pretix: rompía el pie de página |
 
 ## Remotos de Git

@@ -13,7 +13,7 @@ $(function () {
 		xkey: 'date',
 		ykeys: ['ordered', 'paid'],
 		labels: [gettext('Placed orders'), gettext('Paid orders')],
-		lineColors: ['#3b1c4a', '#50a167'],
+		lineColors: ['#3e1b4f', '#50a167'],
 		smooth: false,
 		resize: true,
 		fillOpacity: 0.3,
@@ -25,7 +25,7 @@ $(function () {
 		xkey: 'date',
 		ykeys: ['ordered', 'paid'],
 		labels: [gettext('Attendees (ordered)'), gettext('Attendees (paid)')],
-		lineColors: ['#3b1c4a', '#50a167'],
+		lineColors: ['#3e1b4f', '#50a167'],
 		smooth: false,
 		resize: true,
 		fillOpacity: 0.3,
@@ -37,7 +37,7 @@ $(function () {
 		xkey: 'date',
 		ykeys: ['ordered', 'paid'],
 		labels: [gettext('Attendees (ordered)'), gettext('Attendees (paid)')],
-		lineColors: ['#3b1c4a', '#50a167'],
+		lineColors: ['#3e1b4f', '#50a167'],
 		smooth: false,
 		resize: true,
 		fillOpacity: 0.3,
@@ -51,7 +51,7 @@ $(function () {
 		labels: [gettext('Total revenue')],
 		smooth: false,
 		resize: true,
-		lineColors: ['#3b1c4a'],
+		lineColors: ['#3e1b4f'],
 		fillOpacity: 0.3,
 		preUnits: $.trim($('#currency').html()) + ' '
 	})
@@ -61,7 +61,7 @@ $(function () {
 		xkey: 'item_short',
 		ykeys: ['ordered', 'paid'],
 		labels: [gettext('Placed orders'), gettext('Paid orders')],
-		barColors: ['#3b1c4a', '#50a167'],
+		barColors: ['#3e1b4f', '#50a167'],
 		hoverCallback: function (index, options, content, row) {
 			console.log(content)
 			let $c = $('<div>' + content + '</div>')

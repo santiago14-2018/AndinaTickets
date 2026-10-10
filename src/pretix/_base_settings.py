@@ -137,7 +137,12 @@ LANGUAGES_INCUBATING = {
     'pt-br', 'gl',
 }
 LANGUAGES = ALL_LANGUAGES
+# AndinaTickets: la marca propia (íconos, logos, plantillas y textos) vive en pretix/andina_marca/
+# y se busca antes que lo de pretix, así se reemplaza sin tocar los archivos originales.
+ANDINA_MARCA_DIR = os.path.join(os.path.dirname(__file__), 'andina_marca')
+
 LOCALE_PATHS = [
+    os.path.join(ANDINA_MARCA_DIR, 'locale'),
     os.path.join(os.path.dirname(__file__), 'locale'),
 ]
 
@@ -199,6 +204,7 @@ TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
+            os.path.join(ANDINA_MARCA_DIR, 'templates'),
             os.path.join(BASE_DIR, 'templates'),
         ],
         'OPTIONS': {
@@ -231,8 +237,10 @@ STATICFILES_FINDERS = (
 )
 
 STATICFILES_DIRS = [
+    os.path.join(ANDINA_MARCA_DIR, 'static'),
+] + ([
     os.path.join(BASE_DIR, 'pretix/static')
-] if os.path.exists(os.path.join(BASE_DIR, 'pretix/static')) else []
+] if os.path.exists(os.path.join(BASE_DIR, 'pretix/static')) else [])
 
 STATICI18N_ROOT = os.path.join(BASE_DIR, "pretix/static")
 
@@ -297,7 +305,7 @@ CURRENCY_PLACES = {
 }
 
 PRETIX_EMAIL_NONE_VALUE = 'none@well-known.pretix.eu'
-PRETIX_PRIMARY_COLOR = '#8E44B3'
+PRETIX_PRIMARY_COLOR = '#5b2a73'  # AndinaTickets: violeta de la marca (pretix: #8E44B3)
 
 # pretix includes caching options for some special situations where full HTML responses are cached. This might be
 # stressful for some cache setups so it is enabled by default and currently can't be enabled through pretix.cfg
