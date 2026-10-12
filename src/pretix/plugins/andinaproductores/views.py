@@ -18,6 +18,7 @@ from pretix.plugins.andinaseating.cargo import (
     SETTING as CARGO_SETTING, porcentaje as cargo_porcentaje,
 )
 
+from . import liquidaciones
 from .report import (
     build_report, event_commission, event_producer_team, render_pdf,
 )
@@ -84,6 +85,8 @@ class EventReportView(ProducerMixin, TemplateView):
         event = self.get_event()
         ctx['report'] = build_report(event, self.get_subevent(event))
         ctx['subevents'] = event.subevents.order_by('date_from') if event.has_subevents else []
+        ctx['liquidacion'] = liquidaciones.consultar(event) if liquidaciones.configurado() else None
+        ctx['liquidaciones_configurado'] = liquidaciones.configurado()
         return ctx
 
 
@@ -93,9 +96,22 @@ class EventPdfView(ProducerMixin, View):
         subevent = self.get_subevent(event)
         teams = producer_teams(request)
         pdf = render_pdf(build_report(event, subevent), producer_name=teams[0].name if teams else '')
-        name = 'liquidacion-{}{}.pdf'.format(slugify(event.slug), '-{}'.format(subevent.pk) if subevent else '')
+        name = 'ventas-{}{}.pdf'.format(slugify(event.slug), '-{}'.format(subevent.pk) if subevent else '')
         response = HttpResponse(pdf, content_type='application/pdf')
         response['Content-Disposition'] = 'attachment; filename="{}"'.format(name)
+        return response
+
+
+class LiquidacionPdfView(ProducerMixin, View):
+    """El comprobante de la liquidación, pedido al programa de liquidaciones (ver liquidaciones.py)."""
+    def get(self, request, *args, **kwargs):
+        event = self.get_event()
+        contenido = liquidaciones.pdf(event, kwargs['numero'])
+        if contenido is None:
+            raise Http404()
+        response = HttpResponse(contenido, content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="liquidacion-L-{:04d}-{}.pdf"'.format(
+            int(kwargs['numero']), slugify(event.slug))
         return response
 
 

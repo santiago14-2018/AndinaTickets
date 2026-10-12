@@ -43,6 +43,16 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 - [PROPIO] Mercado Pago: botón "Ya pagué: verificar el pago" en el pedido pendiente, que busca el
   pago en Mercado Pago por la referencia del pedido. Para quien pagó y no volvió a la tienda (en
   la prueba del 12/10, Mercado Pago no mostró ningún botón para volver).
+- [PROPIO] Portal del productor: recuadro **Liquidación** en Mis ventas → evento, con el
+  comprobante en PDF, que se le pide al programa privado nuevo **AndinaTickets-Liquidaciones**
+  (caja 3: repositorio aparte, lee las ventas por la API). El PDF de "Mis ventas" pasa a llamarse
+  `ventas-…pdf` (era `liquidacion-…pdf`). Configuración `ANDINA_LIQUIDACIONES_URL` y
+  `ANDINA_LIQUIDACIONES_CLAVE`. Pruebas en `test_portal_liquidacion.py`.
+- Equipo de pretix nuevo "Liquidaciones (solo lectura)" (ver pedidos de todos los eventos), con
+  el token que usa ese programa.
+- [PROPIO] Cartelera: propiedades de evento **genero** (lista: Teatro, Humor, Música, Danza,
+  Infantil, Fiesta), **ciudad** y **destacado** (Sí/No) en el organizador, cargadas en los tres
+  eventos de prueba (en la base, no en el código).
 - Copias de seguridad nuevas en `privado/copias/` (base de datos y archivos subidos), después de
   que Docker Desktop, al actualizarse, pasara al modo VMM con un disco vacío (se volvió a WSL 2).
 

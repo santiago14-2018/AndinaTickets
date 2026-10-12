@@ -123,6 +123,15 @@ docker exec -e PRETIX_DATABASE_BACKEND=sqlite3 -e PRETIX_DATABASE_NAME= andina-t
 - Organizador → Mis ventas: entradas vendidas online, recaudación, comisión y neto, por tipo de
   entrada, por función y por día, con descarga en PDF. Sin datos de compradores. La boletería se
   informa aparte (ese dinero lo cobra el teatro).
+- **Liquidación** (recuadro en Mis ventas → evento, `liquidaciones.py`): la pide al programa
+  privado **AndinaTickets-Liquidaciones** (caja 3, repositorio aparte, puerto 4340) con la clave
+  compartida (`ANDINA_LIQUIDACIONES_URL` y `ANDINA_LIQUIDACIONES_CLAVE` en
+  `docker-compose.dev.yml` / `.env`). Muestra la liquidación cerrada, lo transferido, el saldo y
+  el comprobante en PDF (que se baja a través de AndinaTickets). Acá no se calcula nada. Sin
+  configurar o si el programa no responde, el recuadro no aparece o avisa, y el portal sigue
+  andando. Usa `urllib` y no `requests`: pretix bloquea con `requests` las conexiones a
+  direcciones privadas (protección para direcciones que cargan usuarios), y esta dirección sale
+  de la configuración del servidor.
 - Importante: no usar el parámetro de URL `event` en vistas de organizador: el middleware de
   permisos del panel lo trata como pantalla de evento (por eso se llama `evento`).
 
@@ -153,7 +162,7 @@ Revisar esta lista en cada actualización desde pretix.
 | `src/pretix/static/pretixbase/scss/_theme_variables.scss`, `_bootstrap_vars.scss`, `colors.scss`, `static/rest_framework/scss/_variables.scss` | Violetas de la marca (`#5b2a73`, barra `#3e1b4f`) | Colores del panel, el login y la tienda |
 | `theme-color` en `pretixcontrol/base.html`, `pretixcontrol/auth/base.html`, `pretixpresale/base.html`, `base/views/webmanifest.py` y `statistics.js` | `#3b1c4a` → `#3e1b4f` | Color de la barra del navegador en el celular y de los gráficos |
 | `src/pretix/base/templates/pretixbase/email/base.html` y `simple_logo.html` | Franja violeta arriba en lugar del semicírculo, fondo lila, letra de la marca | Estética propia de los correos |
-| `src/pretix/_base_settings.py` | `'pretix.andina_marca'` en `INSTALLED_APPS`; `ANDINA_CARTELERA_URL` | Registrar la letra de la marca; link de la barra de la tienda |
+| `src/pretix/_base_settings.py` | `'pretix.andina_marca'` en `INSTALLED_APPS`; `ANDINA_CARTELERA_URL`; `ANDINA_LIQUIDACIONES_URL` y `ANDINA_LIQUIDACIONES_CLAVE` | Registrar la letra de la marca; link de la barra de la tienda; liquidaciones en el portal del productor |
 | `src/pretix/static/pretixbase/scss/webfont.scss`, `pretixcontrol/scss/auth.scss`, `pretixbase/scss/error.scss` | `@font-face` de Bricolage Grotesque; el login y las páginas de error cargan la letra | Letra de la marca en todas las pantallas |
 | `src/pretix/base/settings.py` | Letra por defecto de tiendas (`primary_font`) y facturas (`invoice_renderer_font`): Bricolage Grotesque | Letra de la marca |
 | `src/pretix/presale/templates/pretixpresale/base.html` | Incluye `andina_marca/barra_tienda.html` | La tienda muestra siempre AndinaTickets arriba |

@@ -39,6 +39,51 @@
         </a>
     </p>
 
+    {% if liquidaciones_configurado %}
+        {# Lo responde el programa privado de liquidaciones (liquidaciones.py); acá solo se muestra. #}
+        <div class="panel panel-default">
+            <div class="panel-heading"><h3 class="panel-title">Liquidación</h3></div>
+            <div class="panel-body">
+                {% if liquidacion is None %}
+                    <p class="text-muted">No pudimos consultar la liquidación en este momento. Probá más tarde.</p>
+                {% elif not liquidacion.liquidacion %}
+                    <p>Se liquida al terminar el evento: te transferimos lo vendido online, menos la comisión, el
+                        cargo por servicio que cobró la boletería y la persona de boletería.</p>
+                {% else %}
+                    {% with l=liquidacion.liquidacion %}
+                    <p>
+                        <strong>Liquidación {{ l.codigo }}</strong>
+                        {% if liquidacion.estado == "pagada" %}<span class="label label-success">Pagada</span>
+                        {% else %}<span class="label label-warning">Falta transferir {{ l.saldo|money:report.currency }}</span>{% endif %}
+                    </p>
+                    <table class="table table-condensed">
+                        <tbody>
+                            <tr><td>Entradas vendidas online</td><td class="text-right">{{ l.ventas_online|money:report.currency }}</td></tr>
+                            <tr><td>Comisión del servicio</td><td class="text-right">− {{ l.comision|money:report.currency }}</td></tr>
+                            <tr><td>Cargo por servicio cobrado en la boletería</td><td class="text-right">− {{ l.cargo_boleteria|money:report.currency }}</td></tr>
+                            <tr><td>Persona de boletería</td><td class="text-right">− {{ l.persona_boleteria|money:report.currency }}</td></tr>
+                            <tr><th>A transferirte</th><th class="text-right">{{ l.a_transferir|money:report.currency }}</th></tr>
+                            <tr><td>Ya transferido</td><td class="text-right">− {{ l.transferido|money:report.currency }}</td></tr>
+                            <tr><th>Saldo</th><th class="text-right">{{ l.saldo|money:report.currency }}</th></tr>
+                        </tbody>
+                    </table>
+                    <a class="btn btn-default" href="{% url "plugins:andinaproductores:liquidacion_pdf" organizer=request.organizer.slug evento=report.event.slug numero=l.numero %}">
+                        <span class="fa fa-file-pdf-o"></span> Comprobante de la liquidación
+                    </a>
+                    {% endwith %}
+                {% endif %}
+                {% if liquidacion.transferencias %}
+                    <h4>Transferencias</h4>
+                    <ul>
+                        {% for t in liquidacion.transferencias %}
+                            <li>{{ t.fecha }}: {{ t.monto|money:report.currency }} ({{ t.medio }}{% if t.referencia %}, {{ t.referencia }}{% endif %})</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+
     <div class="row">
         <div class="col-md-6">
             <div class="panel panel-default">

@@ -81,6 +81,9 @@ services:
       PRETIX_PRETIX_URL: ${ANDINA_URL:-http://localhost:8130}
       # Dirección de la cartelera (repositorio aparte): el logo de arriba de la tienda lleva ahí.
       ANDINA_CARTELERA_URL: ${ANDINA_CARTELERA_URL:-http://localhost:4330}
+      # Programa privado de liquidaciones (AndinaTickets-Liquidaciones). La clave va en .env.
+      ANDINA_LIQUIDACIONES_URL: ${ANDINA_LIQUIDACIONES_URL:-http://host.docker.internal:4340}
+      ANDINA_LIQUIDACIONES_CLAVE: ${ANDINA_LIQUIDACIONES_CLAVE:-}
       DATA_DIR: /data
     volumes:
       - ../../src:/pretix/src
@@ -125,6 +128,9 @@ services:
       PRETIX_PRETIX_URL: ${ANDINA_URL:-http://localhost:8130}
       # Dirección de la cartelera (repositorio aparte): el logo de arriba de la tienda lleva ahí.
       ANDINA_CARTELERA_URL: ${ANDINA_CARTELERA_URL:-http://localhost:4330}
+      # Programa privado de liquidaciones (AndinaTickets-Liquidaciones). La clave va en .env.
+      ANDINA_LIQUIDACIONES_URL: ${ANDINA_LIQUIDACIONES_URL:-http://host.docker.internal:4340}
+      ANDINA_LIQUIDACIONES_CLAVE: ${ANDINA_LIQUIDACIONES_CLAVE:-}
       DATA_DIR: /data
     volumes:
       - ../../src:/pretix/src
