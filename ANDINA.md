@@ -59,6 +59,15 @@ Cortesías digitales:
 Las generaciones y cortesías usan el importador de pedidos de pretix (`run_import`), que no
 controla cupos: para eventos sin numerar se controlan antes (`check_quota`).
 
+**Cargo por servicio** (`cargo.py`): el comprador paga un porcentaje del precio de las entradas
+(10 % si no se cambia), como cargo de pretix de tipo "Cargo por servicio" sin IVA. Online lo
+suman las señales `fee_calculation_for_cart` (carrito) y `order_fee_calculation` (pedido); en la
+boletería se suma al vender cada boleto (`sell_tickets`), así no conviene comprar en el
+mostrador. Las cortesías no pagan (precio 0). El porcentaje de cada evento se cambia en
+Organizador → **Productores** (opción de evento `andina_cargo_servicio`). La caja de la
+boletería separa entradas (del productor) y cargo (de AndinaTickets). El portal del productor
+no lo cuenta: suma el precio de las entradas.
+
 ### Plugin andinamercadopago
 
 - Modelo: todo el dinero entra a una sola cuenta de Mercado Pago (la de la plataforma).
@@ -135,6 +144,28 @@ Revisar esta lista en cada actualización desde pretix.
 | `src/pretix/base/settings.py` | Letra por defecto de tiendas (`primary_font`) y facturas (`invoice_renderer_font`): Bricolage Grotesque | Letra de la marca |
 | `src/pretix/presale/templates/pretixpresale/base.html` | Incluye `andina_marca/barra_tienda.html` | La tienda muestra siempre AndinaTickets arriba |
 | `src/pretix/locale/es/LC_MESSAGES/django.po` | Se quitó un `<a` sobrante al final de "impulsado por {name} … basado en pretix" | Error de la traducción de pretix: rompía el pie de página |
+| `src/pretix/settings.py` | Plantillas en memoria (cached loader) también en desarrollo; en desarrollo, los estilos SCSS se compilan con `pretix/helpers/andina_sass.py`, que guarda el resultado | Velocidad del entorno de desarrollo (ver abajo) |
+
+## Entorno de desarrollo lento (Docker en Windows)
+
+El código vive en `D:\` y Docker lo ve a través de WSL 2: leer archivos así es unas **100 veces
+más lento** que dentro de Linux (medido el 12/10/2026: 5 ms por archivo contra 0,04 ms). En modo
+desarrollo pretix lee muchísimos archivos en cada página, así que cada página tardaba 8 segundos
+y la lista de pedidos, 12. Arreglos (solo cambian el modo desarrollo; producción ya los tiene):
+
+- **Estilos:** `pretix/helpers/andina_sass.py` guarda los estilos compilados y recompila solo si
+  cambia algún `.scss` (lo revisa aparte cada 15 segundos). Antes: ~7 segundos por página.
+- **Plantillas:** se guardan en memoria. Django las vuelve a leer sola cuando se edita una
+  (tarda unos segundos en notarlo). Antes: ~10 segundos en la lista de pedidos.
+
+Resultado: 1 a 2 segundos por página. La primera página después de arrancar sigue tardando
+(compila y carga todo una vez), y arrancar el contenedor `web` lleva ~3,5 minutos.
+
+Lo que queda lento es por lo mismo (el vigilante de cambios de Django revisa todos los archivos,
+el arranque copia los estáticos). Solución de fondo, si hiciera falta: mover el código a WSL
+(por ejemplo `\\wsl$\Ubuntu\home\...`), que es unas 10 veces más rápido, pero cambia las rutas
+con las que se trabaja. **Docker en modo VMM no sirve**: arranca con otro disco, vacío (pasó el
+12/10/2026 al actualizar Docker Desktop); los datos están en el de WSL 2.
 
 ## Remotos de Git
 

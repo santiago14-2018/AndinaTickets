@@ -22,6 +22,16 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 
 ---
 
+## 2026-10-12
+
+- [PRETIX] `settings.py`: plantillas en memoria también en desarrollo, y en desarrollo los estilos
+  SCSS con un compilador que guarda el resultado ([PROPIO] `pretix/helpers/andina_sass.py`). Las
+  páginas del entorno de desarrollo bajaron de ~8 segundos (12 la lista de pedidos) a 1–2. La
+  causa: leer el código de `D:\` desde Docker es ~100 veces más lento que dentro de Linux. Ver
+  `ANDINA.md`, "Entorno de desarrollo lento".
+- Copias de seguridad nuevas en `privado/copias/` (base de datos y archivos subidos), después de
+  que Docker Desktop, al actualizarse, pasara al modo VMM con un disco vacío (se volvió a WSL 2).
+
 ## 2026-10-10
 
 - [PROPIO] Marca propia en `src/pretix/andina_marca/` (ver su `LEEME.md`), que Django busca antes
@@ -57,6 +67,13 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
   computadora no tenga la letra). `generar_marca.py` ahora corre en un contenedor aparte.
 - [PROPIO] Se borró el APK de prueba del lector (`static/andina_apk/`): el aro de enfoque funciona.
 - [PROPIO] `ANDINA.md`: AndinaScan anotada como excepción a "no duplicar lo que pretix trae libre".
+- [PROPIO] **Cargo por servicio** (`andinaseating/cargo.py`): el comprador paga un porcentaje del
+  precio de las entradas (10 % por defecto), online (señales de cargos de pretix, se ve en el
+  carrito, el correo y el pedido) y en la boletería (se suma al vender cada boleto de papel). Las
+  cortesías no pagan. La caja de la boletería separa entradas y cargo. Pruebas en `test_cargo.py`;
+  `test_venta_boleteria.py` ahora espera el total con cargo.
+- [PROPIO] Organizador → Productores: columna "Cargo por servicio (%)" para cambiarlo en cada
+  evento (por ejemplo, menos para un festival grande).
 
 ## 2026-10-07
 

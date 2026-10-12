@@ -596,10 +596,12 @@ template_loaders = (
     'django.template.loaders.filesystem.Loader',
     'pretix.helpers.template_loaders.AppLoader',
 )
-if not DEBUG:
-    TEMPLATES[0]['OPTIONS']['loaders'] = ( # noqa
-        ('django.template.loaders.cached.Loader', template_loaders),
-    )
+# AndinaTickets: plantillas en memoria también en desarrollo (pretix solo lo hace en producción).
+# Sin esto, la lista de pedidos busca plantillas ~3700 veces por página: 10 segundos con el código
+# en D:\ visto desde Docker. Django vacía esta memoria solo cuando se edita una plantilla.
+TEMPLATES[0]['OPTIONS']['loaders'] = ( # noqa
+    ('django.template.loaders.cached.Loader', template_loaders),
+)
 TEMPLATES[0]['DIRS'].insert(0, os.path.join(DATA_DIR, 'templates')) # noqa
 
 INTERNAL_IPS = ('127.0.0.1', '::1')
@@ -615,6 +617,13 @@ MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
 loglevel = 'DEBUG' if DEBUG else config.get('pretix', 'loglevel', fallback='INFO')
 
 COMPRESS_ENABLED = COMPRESS_OFFLINE = not debug_fallback
+if debug_fallback:
+    # AndinaTickets: en desarrollo, guardar los estilos ya compilados (SCSS) en el caché. Sin esto se
+    # vuelven a compilar en cada página: unos 7 segundos con el código en D:\ visto desde Docker.
+    # Ver pretix/helpers/andina_sass.py.
+    COMPRESS_PRECOMPILERS = (
+        ('text/x-scss', 'pretix.helpers.andina_sass.SassCompilerConCache'),
+    )
 
 LOGGING = {
     'version': 1,
