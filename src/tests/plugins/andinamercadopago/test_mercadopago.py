@@ -156,9 +156,26 @@ def test_execute_payment_creates_preference(env):
     assert body['binary_mode'] is True
     assert {t['id'] for t in body['payment_methods']['excluded_payment_types']} == {'ticket', 'atm'}
     assert body['external_reference'] == 'teatro/hamlet/ABC12-P-1'
-    assert 'notification_url' not in body  # el sitio de pruebas no es https
+    assert body['payer'] == {'email': 'comprador@example.com'}  # pedido real: se pasa el correo
+    # el sitio de pruebas no es https: ni avisos ni regreso automático (Mercado Pago lo rechaza)
+    assert 'notification_url' not in body and 'auto_return' not in body
     payment.refresh_from_db()
     assert payment.info_data['preference_id'] == 'pref-1'
+
+
+@pytest.mark.django_db
+@responses.activate
+def test_sitio_publico_pide_avisos_y_regreso_automatico(env, settings):
+    event, order, payment = env
+    settings.SITE_URL = 'https://entradas.example.com'
+    responses.add(responses.POST, API + '/checkout/preferences', json={'id': 'pref-2', 'init_point': 'https://x'})
+    request = RequestFactory().get('/')
+    request.event = event
+    with scopes_disabled():
+        MercadoPago(event).execute_payment(request, payment)
+    body = json.loads(responses.calls[0].request.body)
+    assert body['auto_return'] == 'approved'
+    assert body['notification_url'].startswith('https://entradas.example.com/')
 
 
 @pytest.mark.django_db
@@ -173,6 +190,8 @@ def test_execute_payment_uses_test_credentials_in_test_mode(env):
     with scopes_disabled():
         MercadoPago(event).execute_payment(request, payment)
     assert responses.calls[0].request.headers['Authorization'] == 'Bearer APP_USR-prueba'
+    # el comprador de prueba entra con su cuenta: no se pasa el correo del pedido
+    assert 'payer' not in json.loads(responses.calls[0].request.body)
 
 
 @pytest.mark.django_db
@@ -186,6 +205,29 @@ def test_execute_payment_error_is_reported(env):
         with pytest.raises(PaymentException):
             MercadoPago(event).execute_payment(request, payment)
         assert order.all_logentries().filter(action_type='pretix.plugins.andinamercadopago.error').exists()
+
+
+@pytest.mark.django_db
+@responses.activate
+def test_ya_pague_verifica_sin_volver_de_mercado_pago(env, client):
+    """Pagó pero no volvió a la tienda (en desarrollo no hay botón ni avisos): el pedido pendiente
+    ofrece "Ya pagué: verificar el pago", que busca el pago por la referencia del pedido."""
+    event, order, payment = env
+    request = RequestFactory().get('/')
+    request.event = event
+    request.organizer = event.organizer
+    with scopes_disabled():
+        assert 'Ya pagué' not in MercadoPago(event).payment_pending_render(request, payment)  # sin ir a pagar
+        payment.info = json.dumps({'preference_id': 'pref-1'})
+        payment.save()
+        html = MercadoPago(event).payment_pending_render(request, payment)
+    assert 'Ya pagué: verificar el pago' in html
+    responses.add(responses.GET, API + '/v1/payments/search', json={'results': [mp_payment(payment)]})
+    r = client.get(return_path(event, payment))  # el botón lleva acá, sin datos de Mercado Pago
+    assert r.status_code == 302 and 'paid=yes' in r['Location']
+    with scopes_disabled():
+        order.refresh_from_db()
+    assert order.status == Order.STATUS_PAID
 
 
 # ---------- Vuelta del comprador ----------

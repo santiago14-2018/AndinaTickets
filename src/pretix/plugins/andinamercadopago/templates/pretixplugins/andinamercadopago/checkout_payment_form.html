@@ -1,4 +1,9 @@
 <p>
     Al confirmar el pedido te llevamos a Mercado Pago para pagar con tarjeta de crédito, débito o dinero en tu
-    cuenta de Mercado Pago. Después volvés automáticamente a esta página.
+    cuenta de Mercado Pago.
+    {% if regreso_automatico %}
+        Después volvés automáticamente a esta página.
+    {% else %}
+        Cuando el pago esté aprobado, tocá <strong>"Volver al sitio"</strong> en Mercado Pago para terminar acá.
+    {% endif %}
 </p>

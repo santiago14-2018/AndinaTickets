@@ -78,7 +78,21 @@ no lo cuenta: suma el precio de las entradas.
   binario (aprobado o rechazado), para que las butacas no queden esperando pagos lentos.
 - El estado del pago siempre se consulta a la API de Mercado Pago (al volver el comprador y por
   webhook); nunca se confía en los parámetros recibidos.
-- Los avisos (webhook) solo se piden si el sitio es público con https.
+- Los avisos (webhook) y el regreso automático a la tienda (`auto_return`) solo se piden si el
+  sitio es público con https: Mercado Pago rechaza el regreso automático a una dirección local
+  ("auto_return invalid. back_url.success must be defined"). En desarrollo, después de pagar se
+  vuelve con el botón "Volver al sitio" de Mercado Pago.
+- Probar con dinero de mentira: en el panel de desarrolladores de Mercado Pago, crear una
+  aplicación Checkout Pro (API de Preferences) y dos cuentas de prueba (vendedor y comprador).
+  El access token (`APP_USR-…`) de la aplicación del **vendedor de prueba** va en "Access token de
+  prueba"; el evento, en **modo de prueba** y a la venta. Comprar en una ventana de incógnito,
+  pagando como el **comprador de prueba** con las tarjetas de prueba de Mercado Pago (titular
+  `APRO`: aprobado; `OTHE`: rechazado). Los pedidos de prueba se pueden borrar después.
+  Al volver de Mercado Pago en esta PC no hay regreso automático: usar "Ya pagué: verificar el
+  pago" en el pedido. **Devoluciones:** con cuentas de prueba Mercado Pago rechaza la devolución
+  por la API ("Unauthorized use of live credentials"); se devuelve a mano desde la cuenta del
+  vendedor de prueba (Actividad → Devolver dinero) y en el pedido se registra un **Reembolso
+  manual** por el total (con 0 en la fila de Mercado Pago). Probado el 12/10/2026 (pedido R0DRE).
 - El historial del pedido muestra los eventos de Mercado Pago con texto legible (`logentries.py`).
 
 ### Pruebas automáticas

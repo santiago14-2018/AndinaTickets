@@ -29,6 +29,20 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
   páginas del entorno de desarrollo bajaron de ~8 segundos (12 la lista de pedidos) a 1–2. La
   causa: leer el código de `D:\` desde Docker es ~100 veces más lento que dentro de Linux. Ver
   `ANDINA.md`, "Entorno de desarrollo lento".
+- [PROPIO] Mercado Pago: el regreso automático (`auto_return`) solo se pide con un sitio público
+  https, como los avisos. En la primera prueba real (modo de prueba, en esta PC) Mercado Pago lo
+  rechazaba: "auto_return invalid. back_url.success must be defined". Prueba nueva en
+  `test_mercadopago.py`; pasos para probar con cuentas de prueba en `ANDINA.md`.
+- [PROPIO] Mercado Pago, modo de prueba: no se pasa el correo del pedido como comprador (Mercado
+  Pago frenaba el pago con "No pudimos procesar tu pago" porque el comprador no era una cuenta de
+  prueba). En pedidos reales se sigue pasando.
+- [PRETIX] `pretixpresale/event/checkout_base.html`: el carrito se ve siempre completo en la compra
+  (con el cargo por servicio y el total), sin el botón "Mostrar carrito completo".
+- [PROPIO] Mercado Pago: el texto del pago dice "tocá Volver al sitio" cuando el regreso no es
+  automático (sitio sin https).
+- [PROPIO] Mercado Pago: botón "Ya pagué: verificar el pago" en el pedido pendiente, que busca el
+  pago en Mercado Pago por la referencia del pedido. Para quien pagó y no volvió a la tienda (en
+  la prueba del 12/10, Mercado Pago no mostró ningún botón para volver).
 - Copias de seguridad nuevas en `privado/copias/` (base de datos y archivos subidos), después de
   que Docker Desktop, al actualizarse, pasara al modo VMM con un disco vacío (se volvió a WSL 2).
 

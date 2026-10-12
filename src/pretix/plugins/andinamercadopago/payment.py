@@ -155,7 +155,10 @@ class MercadoPago(BasePaymentProvider):
         )
 
     def payment_form_render(self, request, total=None, order=None):
-        return get_template('pretixplugins/andinamercadopago/checkout_payment_form.html').render({}, request=request)
+        return get_template('pretixplugins/andinamercadopago/checkout_payment_form.html').render({
+            # Mismo criterio que execute_payment: el regreso automático solo funciona con un sitio https.
+            'regreso_automatico': django_settings.SITE_URL.startswith('https://'),
+        }, request=request)
 
     def checkout_prepare(self, request, cart):
         return True
@@ -194,14 +197,16 @@ class MercadoPago(BasePaymentProvider):
             }],
             'external_reference': external_reference(payment),
             'back_urls': {'success': back, 'failure': back, 'pending': back},
-            'auto_return': 'approved',
             # Solo "aprobado" o "rechazado": las butacas no quedan esperando pagos a confirmar.
             'binary_mode': True,
             'payment_methods': {'excluded_payment_types': EXCLUDED_PAYMENT_TYPES},
             'metadata': {'organizer': self.event.organizer.slug, 'event': self.event.slug,
                          'order': order.code, 'payment': payment.local_id},
         }
-        if order.email:
+        # En modo de prueba no se pasa el correo del pedido: Mercado Pago exige que el comprador
+        # también sea una cuenta de prueba, y con un correo común frena el pago ("No pudimos
+        # procesar tu pago") antes de intentarlo.
+        if order.email and not order.testmode:
             preference['payer'] = {'email': order.email}
         if order.expires:
             preference['expires'] = True
@@ -209,9 +214,13 @@ class MercadoPago(BasePaymentProvider):
         descriptor = global_setting('statement_descriptor')
         if descriptor:
             preference['statement_descriptor'] = descriptor
-        # Mercado Pago solo puede avisar a una dirección pública (no a localhost en desarrollo).
+        # Mercado Pago solo puede avisar a una dirección pública (no a localhost en desarrollo), y
+        # rechaza el regreso automático a una dirección que no es pública ("auto_return invalid.
+        # back_url.success must be defined"). En desarrollo, el comprador vuelve con el botón
+        # "Volver al sitio" de Mercado Pago.
         if django_settings.SITE_URL.startswith('https://'):
             preference['notification_url'] = eventreverse_absolute(self.event, 'plugins:andinamercadopago:webhook')
+            preference['auto_return'] = 'approved'
 
         try:
             result = self.api(order.testmode).create_preference(preference)
@@ -226,6 +235,9 @@ class MercadoPago(BasePaymentProvider):
     def payment_pending_render(self, request, payment):
         return get_template('pretixplugins/andinamercadopago/pending.html').render({
             'payment': payment, 'info': payment.info_data,
+            # Consulta el pago a Mercado Pago por la referencia del pedido (ReturnView): para quien
+            # pagó y no volvió a la tienda, y en desarrollo, donde no llegan los avisos.
+            'verificar_url': self.return_url(payment) if payment.info_data.get('preference_id') else None,
         }, request=request)
 
     def payment_control_render(self, request, payment):
