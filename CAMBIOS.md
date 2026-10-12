@@ -53,6 +53,53 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 - [PROPIO] Cartelera: propiedades de evento **genero** (lista: Teatro, Humor, Música, Danza,
   Infantil, Fiesta), **ciudad** y **destacado** (Sí/No) en el organizador, cargadas en los tres
   eventos de prueba (en la base, no en el código).
+- [PROPIO] Salas, generador de sectores: opción **Numeración** (corrida 1, 2, 3…; impares 1, 3,
+  5…; pares 2, 4, 6…), que se combina con "Primera butaca" y "de derecha a izquierda". Los
+  sectores impares y pares se ponen uno al lado del otro a mano.
+- [PROPIO] Planos del panel (Salas y Boletería): cada butaca muestra su **número**
+  (`seatmap-andina.js` lo dibuja; la librería no lo hace). En la vista previa el sector nuevo va
+  en naranja, sin el tilde que tapaba el número. `seats_to_blocks` suma `custom_data` en lugar de
+  reemplazarlo.
+- [PROPIO] Generador: los errores se marcan y se borran **mientras se escribe** y "Agregar a la
+  sala" se deshabilita mientras haya uno. Antes, un error de un intento anterior quedaba en rojo
+  aunque el valor ya estuviera bien. Pruebas en `test_generador.py`.
+- [PROPIO] Planos del panel (Salas, Boletería y Cortesías) más altos (620 px, eran 460) y
+  **agrandables** arrastrando la esquina de abajo a la derecha (`resize: vertical` en
+  `control.css`). Al soltar, el plano se reacomoda y se vuelve a ver la sala entera; el alto
+  elegido se recuerda en ese navegador. El plano de la tienda no cambia.
+- [PROPIO] Salas, generador: **Letra de la fila** a la izquierda, a la derecha o a los dos lados,
+  en todos los planos (Salas, Boletería, Cortesías y tienda). Se guarda por sala y sector en la
+  configuración del organizador (`andina_rotulos_<sala>`): el formato de salas de pretix no
+  admite datos extra. Al quitar un sector se olvida su lado.
+- [PROPIO] Salas, generador: **Ubicación** del sector (debajo de todo, o a la derecha, a la
+  izquierda o debajo de otro sector de la sala). Antes siempre iba abajo de todo, y al
+  regenerar un sector existente se mudaba abajo: ahora queda donde estaba. Si un sector queda
+  a la izquierda del primero, se corre toda la sala. Pruebas en `test_generador.py`.
+- [PROPIO] Salas: cada sector es independiente. El generador ya no pide "Categoría" (la categoría
+  de pretix es el nombre del sector), tiene el botón **"Nuevo sector"** (formulario en blanco) y
+  "Guardar sector"; el nombre es obligatorio. La lista "Sectores" ya no muestra categorías.
+- [PROPIO] Salas: **Nuevo** y **Editar** separados. "Nuevo sector" no deja repetir un nombre de
+  la sala (avisa mientras se escribe). "Editar", en la lista "Sectores", carga la configuración
+  con que se generó el sector (sale del historial de la sala) y al guardar lo reemplaza en su
+  lugar (ubicación "Donde está"); el nombre no se cambia al editar. Los sectores subidos desde
+  archivo no se pueden editar (se quitan y se suben de nuevo).
+- [PROPIO] Salas: al entrar (y después de guardar) la pantalla queda lista para el **alta** de un
+  sector: plano vacío y formulario en blanco; mientras se completa se ve **solo ese sector**.
+  "Editar" muestra solo el sector que se edita. La ubicación en la sala es opcional y va plegada
+  (con la casilla "Ver junto con los otros sectores"). La sala entera se dibuja solo con "Ver la
+  sala completa" (`?ver=sala`), en la lista de sectores.
+- [PROPIO] Planos del panel: el nombre de cada sector (que la librería escribe en el medio, en
+  gris oscuro sobre fondo oscuro) va blanco con borde oscuro: se lee sobre cualquier fondo.
+- [PROPIO] Salas: botones **"Exportar"** (cada sector) y **"Exportar sala completa"**: bajan un JSON en
+  el formato de planos de pretix (validado), que se vuelve a subir con "Subir un sector desde un
+  archivo" o se importa en cualquier pretix (`export_sector` en `layout.py`, vista
+  `SalaExportView`). La letra de la fila a la derecha no viaja en el archivo. Las salas de hoy
+  quedaron exportadas en `privado/salas/` (no va a Git).
+- [PROPIO] Salas: al ubicar un sector al lado de otro se deja lugar para las letras de las filas
+  (antes los sectores se encimaban si las letras quedaban en el medio).
+- [PROPIO] Evento → Plan de butacas habla de **sectores**: cada sector se conecta con un producto
+  (varios sectores pueden ir con el mismo producto). Si una sala subida desde archivo agrupa
+  sectores en una categoría, se ven los sectores y, abajo, la categoría.
 - Copias de seguridad nuevas en `privado/copias/` (base de datos y archivos subidos), después de
   que Docker Desktop, al actualizarse, pasara al modo VMM con un disco vacío (se volvió a WSL 2).
 

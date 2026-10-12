@@ -58,7 +58,7 @@ def row_names(first, count):
 
 def generate_sector(name, rows, seats_per_row, first_row='A', first_number=1, right_to_left=False,
                     seat_spacing=SEAT_SPACING, row_spacing=40, aisle_after=0, stagger=False, curve=0,
-                    category=''):
+                    category='', numbering='corrida'):
     """
     Arma un sector rectangular de ``rows`` filas por ``seats_per_row`` butacas.
 
@@ -67,8 +67,16 @@ def generate_sector(name, rows, seats_per_row, first_row='A', first_number=1, ri
     - ``stagger``: corre media butaca las filas alternadas.
     - ``curve``: cuántos píxeles más atrás queda el centro de la fila respecto de las
       puntas (las puntas quedan más cerca del escenario, que está arriba).
+    - ``numbering``: ``corrida`` (1, 2, 3…), ``impares`` (1, 3, 5…) o ``pares`` (2, 4, 6…).
+      Con pares o impares, la numeración arranca en ``first_number`` o en el siguiente
+      número de esa serie.
     """
     category = category or name
+    step = 1
+    if numbering in ('impares', 'pares'):
+        step = 2
+        if first_number % 2 != (1 if numbering == 'impares' else 0):
+            first_number += 1
     prefix = slugify(name) or 'sector'
     width = (seats_per_row - 1) * seat_spacing + (seat_spacing if aisle_after else 0)
     half = width / 2 or 1
@@ -80,7 +88,7 @@ def generate_sector(name, rows, seats_per_row, first_row='A', first_number=1, ri
             x = si * seat_spacing + (seat_spacing if aisle_after and si >= aisle_after else 0)
             t = (x - half) / half
             y = curve * (1 - t * t)
-            number = first_number + (seats_per_row - 1 - si if right_to_left else si)
+            number = first_number + step * (seats_per_row - 1 - si if right_to_left else si)
             seats.append({
                 'seat_guid': '{}-{}-{}'.format(prefix, row, number),
                 'seat_number': str(number),
@@ -235,13 +243,51 @@ def _resize(layout):
     layout['size'] = {'width': math.ceil(width), 'height': math.ceil(height)}
 
 
-def add_sector(layout, zone, categories):
+LABEL_SPACE = 55  # lugar que ocupa la letra de la fila al costado (seatmap.ROW_LABEL_OFFSET + el círculo)
+
+
+def _zone_box(zone, x=None, y=None, side='izquierda'):
+    """(izquierda, arriba, derecha, abajo) de un sector, en coordenadas de la sala (o con el
+    sector puesto en x, y). Derecha y abajo llevan el margen de una butaca, como _zone_bottom_right.
+    ``side``: de qué lado van las letras de las filas, para dejarles lugar."""
+    zx = zone['position']['x'] if x is None else x
+    zy = zone['position']['y'] if y is None else y
+    xs, ys = [], []
+    for r in zone.get('rows', []):
+        rx, ry = r.get('position', {}).get('x', 0), r.get('position', {}).get('y', 0)
+        for s in r.get('seats', []):
+            xs.append(rx + s['position']['x'])
+            ys.append(ry + s['position']['y'])
+    if not xs:
+        return zx, zy, zx, zy
+    left = LABEL_SPACE if side in ('izquierda', 'ambos') else 0
+    right = LABEL_SPACE if side in ('derecha', 'ambos') else 0
+    return (zx + min(xs) - left, zy + min(ys),
+            zx + max(xs) + SEAT_SPACING + right, zy + max(ys) + SEAT_SPACING)
+
+
+PLACEMENTS = ('auto', 'derecha', 'izquierda', 'abajo')
+
+
+def add_sector(layout, zone, categories, placement='auto', reference=None, sides=None):
     """
     Agrega (o reemplaza, si ya existe uno con el mismo nombre) un sector al plano.
     Devuelve un plano nuevo; no modifica el original.
+
+    ``placement``: dónde va el sector.
+    - ``auto``: si ya existía, en el mismo lugar; si es nuevo, debajo de todo.
+    - ``derecha``, ``izquierda`` o ``abajo``: al lado del sector ``reference`` (a la misma
+      altura, o debajo y alineado a la izquierda), separados por SECTOR_GAP.
+    ``sides``: de qué lado van las letras de las filas de cada sector (seatmap.row_label_sides,
+    con el sector nuevo incluido), para que no se encimen.
+    Si algo queda con coordenadas negativas, se corre toda la sala.
     """
     layout = json.loads(json.dumps(layout))
+    previous = next((z for z in layout['zones'] if z.get('name') == zone['name']), None)
     layout['zones'] = [z for z in layout['zones'] if z.get('name') != zone['name']]
+    ref = next((z for z in layout['zones'] if z.get('name') == reference), None)
+    if placement not in PLACEMENTS or (placement != 'auto' and ref is None):
+        placement = 'auto'
 
     taken = {s['seat_guid'] for z in layout['zones'] for r in z['rows'] for s in r['seats']}
     new_guids = [s['seat_guid'] for r in zone['rows'] for s in r['seats']]
@@ -257,9 +303,32 @@ def add_sector(layout, zone, categories):
             'Cada butaca de la sala necesita un seat_guid único.'.format(', '.join(dup[:5]))
         )
 
-    bottom = max((_zone_bottom_right(z)[1] for z in layout['zones']), default=0)
-    zone['position'] = {'x': 0, 'y': bottom + SECTOR_GAP if layout['zones'] else 0}
+    sides = sides or {}
+    left, top, right, bottom = _zone_box(zone, 0, 0, sides.get(zone['name'], 'izquierda'))  # sin correr
+    if placement == 'auto' and previous is not None:
+        zone['position'] = dict(previous['position'])
+    elif placement == 'auto':
+        last = max((_zone_bottom_right(z)[1] for z in layout['zones']), default=0)
+        zone['position'] = {'x': 0, 'y': last + SECTOR_GAP if layout['zones'] else 0}
+    else:
+        r_left, r_top, r_right, r_bottom = _zone_box(ref, side=sides.get(ref['name'], 'izquierda'))
+        if placement == 'derecha':
+            x, y = r_right + SECTOR_GAP - left, r_top - top
+        elif placement == 'izquierda':
+            x, y = r_left - SECTOR_GAP - right, r_top - top
+        else:
+            x, y = r_left - left, r_bottom + SECTOR_GAP - top
+        zone['position'] = {'x': round(x, 2), 'y': round(y, 2)}
     layout['zones'].append(zone)
+
+    # Nada puede quedar con coordenadas negativas (por ejemplo, un sector a la izquierda del
+    # primero): se corre toda la sala.
+    boxes = [_zone_box(z, side=sides.get(z['name'], 'izquierda')) for z in layout['zones']]
+    dx = max(0, -min(b[0] for b in boxes))
+    dy = max(0, -min(b[1] for b in boxes))
+    if dx or dy:
+        for z in layout['zones']:
+            z['position'] = {'x': z['position']['x'] + dx, 'y': z['position']['y'] + dy}
 
     known = {c['name'] for c in layout['categories']}
     for c in categories:
@@ -284,6 +353,28 @@ def remove_sector(layout, sector_name):
     layout['categories'] = [c for c in layout['categories'] if c['name'] in used]
     _resize(layout)
     return layout
+
+
+def export_sector(layout, sector_name):
+    """
+    Un sector como plano de pretix de una sola zona, puesto arriba a la izquierda, con sus
+    categorías: se puede volver a subir con "Subir un sector desde un archivo" o importar en
+    cualquier pretix. None si la sala no tiene ese sector.
+    """
+    zone = next((z for z in layout.get('zones', []) if z.get('name') == sector_name), None)
+    if zone is None:
+        return None
+    zone = json.loads(json.dumps(zone))
+    zone['position'] = {'x': 0, 'y': 0}
+    used = {s['category'] for r in zone['rows'] for s in r['seats']}
+    out = {
+        'name': sector_name,
+        'categories': [c for c in layout.get('categories', []) if c['name'] in used],
+        'zones': [zone],
+        'size': {'width': 400, 'height': 300},
+    }
+    _resize(out)
+    return out
 
 
 def categories_summary(layout):

@@ -5,8 +5,9 @@
     <h1>Plan de butacas</h1>
     <p>
         Elegí la sala{% if series %} para las fechas del evento{% else %} del evento{% endif %} y conectá cada
-        categoría de butaca con el producto que se vende (su precio). Si el producto no tiene cupo, se crea uno
-        del tamaño de la categoría. Los productos conectados se venden solo eligiendo butaca.
+        sector de la sala con el producto que se vende (su precio). Varios sectores pueden ir con el mismo
+        producto. Si el producto no tiene cupo, se crea uno del tamaño del sector. Los productos conectados
+        se venden solo eligiendo butaca.
         Las salas se arman en <a href="{{ salas_url }}">Salas</a>.
     </p>
 
@@ -38,7 +39,7 @@
                     <option value="{{ p.pk }}" {% if p == plan %}selected{% endif %}>{{ p.name }}</option>
                 {% endfor %}
             </select>
-            <button type="submit" class="btn btn-default">Ver categorías</button>
+            <button type="submit" class="btn btn-default">Ver sectores</button>
             {% if plan_changed %}
                 <p class="help-block">Todavía no guardaste este cambio: revisá abajo y guardá.</p>
             {% endif %}
@@ -48,13 +49,13 @@
     <form method="post" class="panel panel-default">
         {% csrf_token %}
         <input type="hidden" name="sala" value="{{ plan.pk|default_if_none:"" }}">
-        <div class="panel-heading"><h3 class="panel-title">2. Categorías y productos</h3></div>
+        <div class="panel-heading"><h3 class="panel-title">2. Sectores y productos</h3></div>
         {% if plan %}
             <div class="table-responsive">
                 <table class="table">
                     <thead>
                     <tr>
-                        <th>Categoría</th>
+                        <th>Sector</th>
                         <th class="text-right">Butacas</th>
                         <th>Producto</th>
                         <th>Si creás uno nuevo</th>
@@ -66,8 +67,13 @@
                         <tr>
                             <td>
                                 <input type="hidden" name="category_{{ forloop.counter0 }}" value="{{ c.name }}">
-                                <strong>{{ c.name }}</strong>
-                                {% if c.sectors|join:"" != c.name %}<br><small class="text-muted">{{ c.sectors|join:", " }}</small>{% endif %}
+                                {% if c.sectors|join:"" == c.name %}
+                                    <strong>{{ c.name }}</strong>
+                                {% else %}
+                                    {# Salas subidas desde archivo pueden agrupar varios sectores en una categoría. #}
+                                    <strong>{{ c.sectors|join:", " }}</strong><br>
+                                    <small class="text-muted">categoría "{{ c.name }}"</small>
+                                {% endif %}
                             </td>
                             <td class="text-right">{{ c.seats }}</td>
                             <td>

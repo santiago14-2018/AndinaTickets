@@ -7,7 +7,9 @@ from django.urls import re_path
 from .boleteria_views import BoleteriaPackageView, BoleteriaView
 from .cortesias_views import CortesiasView
 from .event_views import EventSeatingView
-from .views import SalaDetailView, SalaGeneratorPreviewView, SalaListView
+from .views import (
+    SalaDetailView, SalaExportView, SalaGeneratorPreviewView, SalaListView,
+)
 
 urlpatterns = [
     re_path(r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/butacas/$', EventSeatingView.as_view(),
@@ -22,4 +24,6 @@ urlpatterns = [
     re_path(r'^control/organizer/(?P<organizer>[^/]+)/salas/(?P<sala>\d+)/$', SalaDetailView.as_view(), name='sala'),
     re_path(r'^control/organizer/(?P<organizer>[^/]+)/salas/(?P<sala>\d+)/vista-previa/$',
             SalaGeneratorPreviewView.as_view(), name='sala.preview'),
+    re_path(r'^control/organizer/(?P<organizer>[^/]+)/salas/(?P<sala>\d+)/exportar/$',
+            SalaExportView.as_view(), name='sala.export'),
 ]

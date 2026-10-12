@@ -19,36 +19,48 @@
         </div>
     {% endif %}
 
+    {# Tres momentos: ver la sala; alta de un sector ("Nuevo sector"); edición ("Editar"). #}
     <div class="panel panel-default">
-        <div class="panel-heading"><h3 class="panel-title">Plano y generador de sectores</h3></div>
+        <div class="panel-heading"><h3 class="panel-title">
+            {% if editing %}Editar el sector "{{ editing }}"{% elif show_generator %}Nuevo sector{% else %}La sala completa{% endif %}
+        </h3></div>
         <div class="panel-body">
             <div class="row">
                 <div class="col-md-7">
                     <div id="sala-map" class="andina-seatmap" data-source="sala-blocks" data-mode="preview"
-                         data-generator-form="gen-form" data-preview-url="{{ preview_url }}">
+                         {% if show_generator %}data-generator-form="gen-form" data-preview-url="{{ preview_url }}"{% endif %}>
                         {% if not blocks %}
                             <p class="andinaseating-map-empty text-muted">
-                                La sala todavía no tiene sectores. Completá el generador y vas a ver el sector acá.
+                                {% if show_generator %}
+                                    Completá los datos del sector: acá lo vas a ver, solo.
+                                {% else %}
+                                    La sala todavía no tiene sectores. Tocá "Nuevo sector" para armar el primero.
+                                {% endif %}
                             </p>
                         {% endif %}
                     </div>
                     <p class="text-muted small" id="gen-status" aria-live="polite">
-                        {% if blocks %}Hacé clic en un sector o usá la rueda del mouse para acercar.{% endif %}
+                        {% if blocks %}Usá la rueda del mouse para acercar. La esquina de abajo a la derecha agranda el plano.{% endif %}
                     </p>
                 </div>
                 <div class="col-md-5">
+                    {% if not show_generator %}
+                        <p>
+                            <a href="{{ view_url }}" class="btn btn-primary btn-lg">
+                                <span class="fa fa-plus"></span> Nuevo sector</a>
+                        </p>
+                    {% else %}
                     <form method="post" id="gen-form" class="andinaseating-generator" data-open="{% if open_generator %}true{% endif %}">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="generate">
-                        <p class="text-muted small">
-                            Cambiá los valores y mirá el resultado en el plano (en naranja). Cuando esté bien,
-                            tocá "Agregar a la sala".
-                        </p>
                         {% bootstrap_form_errors gen_form type="non_fields" %}
-                        <div class="row">
-                            <div class="col-sm-6">{% bootstrap_field gen_form.name %}</div>
-                            <div class="col-sm-6">{% bootstrap_field gen_form.category %}</div>
-                        </div>
+                        {{ gen_form.editing }}
+                        {% if editing %}
+                            <p class="alert alert-info">
+                                Al guardar, el sector <strong>{{ editing }}</strong> se reemplaza y queda en su lugar.
+                            </p>
+                        {% endif %}
+                        {% bootstrap_field gen_form.name %}
                         <div class="row">
                             <div class="col-sm-6">{% bootstrap_field gen_form.rows %}</div>
                             <div class="col-sm-6">{% bootstrap_field gen_form.seats_per_row %}</div>
@@ -56,6 +68,10 @@
                         <div class="row">
                             <div class="col-sm-6">{% bootstrap_field gen_form.first_row %}</div>
                             <div class="col-sm-6">{% bootstrap_field gen_form.first_number %}</div>
+                        </div>
+                        <div class="row">
+                            <div class="col-sm-6">{% bootstrap_field gen_form.numbering %}</div>
+                            <div class="col-sm-6">{% bootstrap_field gen_form.row_labels %}</div>
                         </div>
                         {% bootstrap_field gen_form.right_to_left %}
                         <div class="row">
@@ -67,20 +83,46 @@
                             <div class="col-sm-6">{% bootstrap_field gen_form.seat_spacing %}</div>
                             <div class="col-sm-6">{% bootstrap_field gen_form.row_spacing %}</div>
                         </div>
+                        {% if sectors %}
+                            {# Opcional: si no se toca, el sector va debajo de los otros (o queda en su lugar al editar). #}
+                            <details class="andinaseating-ubicacion" {% if gen_form.placement.value and gen_form.placement.value != "auto" %}open{% endif %}>
+                                <summary>Ubicación en la sala (opcional)</summary>
+                                <div class="row">
+                                    <div class="col-sm-6">{% bootstrap_field gen_form.placement %}</div>
+                                    <div class="col-sm-6">{% bootstrap_field gen_form.reference %}</div>
+                                </div>
+                                <div class="checkbox">
+                                    <label><input type="checkbox" name="con_sala" value="1"> Ver junto con los otros sectores de la sala</label>
+                                </div>
+                            </details>
+                        {% endif %}
                         <div class="text-right">
-                            <button type="submit" class="btn btn-primary"><span class="fa fa-plus"></span> Agregar a la sala</button>
+                            <a href="{{ view_url }}" class="btn btn-default">Cancelar</a>
+                            <button type="submit" class="btn btn-primary"><span class="fa fa-save"></span> Guardar sector</button>
                         </div>
                     </form>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
     {{ blocks|json_script:"sala-blocks" }}
+    {{ gen_form.errors.get_json_data|json_script:"gen-errors" }}
     <script src="{% static "pretixplugins/andinaseating/vendor/seatmap-canvas/seatmap.canvas.min.js" %}"></script>
     <script src="{% static "pretixplugins/andinaseating/seatmap-andina.js" %}"></script>
 
     <div class="panel panel-default">
-        <div class="panel-heading"><h3 class="panel-title">Sectores</h3></div>
+        <div class="panel-heading">
+            {% if sectors %}
+                <a class="btn btn-default btn-xs pull-right andinaseating-btn-sep" href="?ver=sala"
+                   title="Dibuja todos los sectores juntos, como los ve el comprador">
+                    <span class="fa fa-th"></span> Ver la sala completa</a>
+                <a class="btn btn-default btn-xs pull-right" href="{{ export_url }}"
+                   title="Toda la sala en un archivo JSON (formato de pretix), como copia">
+                    <span class="fa fa-download"></span> Exportar sala completa</a>
+            {% endif %}
+            <h3 class="panel-title">Sectores</h3>
+        </div>
         {% if sectors %}
             <div class="table-responsive">
                 <table class="table table-condensed">
@@ -89,7 +131,6 @@
                         <th>Sector</th>
                         <th class="text-right">Filas</th>
                         <th class="text-right">Butacas</th>
-                        <th>Categorías</th>
                         <th></th>
                     </tr>
                     </thead>
@@ -99,8 +140,14 @@
                             <td><strong>{{ s.name }}</strong></td>
                             <td class="text-right">{{ s.rows }}</td>
                             <td class="text-right">{{ s.seats }}</td>
-                            <td>{{ s.categories|join:", " }}</td>
-                            <td class="text-right">
+                            <td class="text-right text-nowrap">
+                                {% if s.editable %}
+                                    <a class="btn btn-default btn-sm" href="?editar={{ s.name|urlencode }}#gen-form">
+                                        <span class="fa fa-pencil"></span> Editar</a>
+                                {% endif %}
+                                <a class="btn btn-default btn-sm" href="{{ export_url }}?sector={{ s.name|urlencode }}"
+                                   title="Este sector en un archivo JSON (formato de pretix): se puede subir en otra sala">
+                                    <span class="fa fa-download"></span> Exportar</a>
                                 <details class="andinaseating-confirm">
                                     <summary class="btn btn-default btn-sm"><span class="fa fa-trash"></span> Quitar</summary>
                                     <form method="post">

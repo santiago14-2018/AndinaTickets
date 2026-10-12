@@ -23,7 +23,7 @@ con Windows (y pasarle los datos), ver [INSTALAR.md](INSTALAR.md).
 
 | Pantalla | Dónde | Para qué |
 |---|---|---|
-| Salas | Organizador → Salas | Crear salas; generar sectores por parámetros (filas, butacas, pasillo, curva, filas alternadas) con vista previa en vivo, o subirlos como JSON o CSV |
+| Salas | Organizador → Salas | Crear salas; generar sectores por parámetros (filas, butacas, numeración corrida, de impares o de pares, de derecha a izquierda, al entrar, alta de un sector (plano vacío, se ve solo el sector nuevo, sin repetir nombre; la sala entera solo con "Ver la sala completa") y "Editar" (carga la configuración guardada en el historial de la sala y lo deja en su lugar), ubicación (debajo de todo, o a la derecha, a la izquierda o debajo de otro sector, dejando lugar para las letras), letra de la fila a la izquierda, a la derecha o a los dos lados (se guarda aparte, en la configuración del organizador `andina_rotulos_<sala>`, porque el formato de salas de pretix no admite datos extra), pasillo, curva, filas alternadas) con vista previa en vivo (cada butaca con su número; el sector nuevo en naranja; los errores se marcan mientras se escribe), o subirlos como JSON o CSV; exportar cada sector o la sala completa en JSON de pretix (copias en `privado/salas/`) |
 | Tienda | Página del evento | Plano para elegir butacas (seatmap-canvas), sincronizado con la lista de butacas, que queda como alternativa accesible |
 | Plan de butacas | Evento → Plan de butacas | Elegir sala (por fecha en una serie) y conectar categorías con productos y cupos |
 | Boletería | Evento → Boletería | Reservar butacas para venta presencial, cargar boletos impresos (CSV `codigo;fila;butaca`) y generar boletos para la imprenta (con y sin numerar) |

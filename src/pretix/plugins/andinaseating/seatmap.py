@@ -26,12 +26,40 @@ def seat_name(s):
     ) if p)
 
 
-def seats_to_blocks(seats, state=None, titles=False):
+def _sides_key(plan):
+    return 'andina_rotulos_{}'.format(plan.pk)
+
+
+def row_label_sides(plan):
+    """
+    De qué lado va la letra de la fila en cada sector de una sala: {sector: 'derecha' o 'ambos'}
+    (los que no figuran, a la izquierda). El formato de salas de pretix no admite datos extra,
+    así que se guarda aparte, en la configuración del organizador.
+    """
+    if plan is None or not plan.pk:
+        return {}
+    return dict(plan.organizer.settings.get(_sides_key(plan), as_type=dict, default={}) or {})
+
+
+def set_row_label_side(plan, zone, side):
+    sides = row_label_sides(plan)
+    if side in ('derecha', 'ambos'):
+        sides[zone] = side
+    else:
+        sides.pop(zone, None)
+    if sides:
+        plan.organizer.settings.set(_sides_key(plan), sides)
+    else:
+        plan.organizer.settings.delete(_sides_key(plan))
+
+
+def seats_to_blocks(seats, state=None, titles=False, sides=None):
     """
     ``seats``: iterable de objetos con zone, row, row_label, number, seat_label, guid, x, y.
     ``state(seat)``: devuelve un dict extra para cada butaca (por ejemplo salable,
     selected o title). Sin ``state``, todas las butacas son seleccionables.
     ``titles``: agrega el nombre de cada sector arriba de sus butacas (ver ``_add_titles``).
+    ``sides``: de qué lado va la letra de la fila en cada sector (ver ``row_label_sides``).
 
     El ``title`` de cada butaca es el texto del cartel que aparece al pasar el mouse
     (un renglón por cada salto de línea); la librería no lo dibuja sobre la butaca.
@@ -49,21 +77,29 @@ def seats_to_blocks(seats, state=None, titles=False):
             'y': s.y or 0,
             'title': seat_name(s),
             'salable': True,
-            'custom_data': {'row': s.row_label or s.row, 'zone': zone},
+            # number: el número que se dibuja dentro de la butaca en las pantallas del panel.
+            'custom_data': {'row': s.row_label or s.row, 'zone': zone, 'number': s.number},
         }
         if state:
-            seat.update(state(s))
+            extra = dict(state(s))
+            # custom_data se suma al de la butaca (no lo reemplaza).
+            seat['custom_data'].update(extra.pop('custom_data', None) or {})
+            seat.update(extra)
         block['seats'].append(seat)
 
-        key = (zone, s.row)
-        first = rows.get(key)
-        if first is None or seat['x'] < first['x']:
-            rows[key] = {'x': seat['x'], 'y': seat['y'], 'title': s.row, 'zone': zone}
+        r = rows.setdefault((zone, s.row), {'title': s.row, 'zone': zone, 'first': seat, 'last': seat})
+        if seat['x'] < r['first']['x']:
+            r['first'] = seat
+        if seat['x'] > r['last']['x']:
+            r['last'] = seat
 
     for r in rows.values():
-        blocks[r['zone']]['labels'].append({
-            'title': r['title'], 'x': r['x'] - ROW_LABEL_OFFSET, 'y': r['y'],
-        })
+        side = (sides or {}).get(r['zone'], 'izquierda')
+        labels = blocks[r['zone']]['labels']
+        if side in ('izquierda', 'ambos'):
+            labels.append({'title': r['title'], 'x': r['first']['x'] - ROW_LABEL_OFFSET, 'y': r['first']['y']})
+        if side in ('derecha', 'ambos'):
+            labels.append({'title': r['title'], 'x': r['last']['x'] + ROW_LABEL_OFFSET, 'y': r['last']['y']})
     out = list(blocks.values())
     if titles:
         _add_titles(out)

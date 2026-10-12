@@ -29,7 +29,7 @@ from .boleteria import (
 )
 from .forms import GenerateForm, SellForm, TicketsUploadForm
 from .imprenta import printer_package
-from .seatmap import event_seats, seats_to_blocks
+from .seatmap import event_seats, row_label_sides, seats_to_blocks
 
 
 class EventDateMixin:
@@ -83,7 +83,7 @@ class EventDateMixin:
         seats = event_seats(self.target.seats.all())
         return seats_to_blocks(seats, state=lambda s: {
             'salable': s.obj.pk in free, 'selected': s.obj.pk in free and s.guid in chosen,
-        }), seats
+        }, sides=row_label_sides(self.target.seating_plan)), seats
 
     @staticmethod
     def row_buttons(seats):
@@ -153,7 +153,7 @@ class BoleteriaView(EventDateMixin, EventPermissionRequiredMixin, TemplateView):
         blocks = seats_to_blocks(seats, state=lambda s: {
             'salable': s.obj.pk in free,
             'selected': s.obj.pk in free and s.obj.blocked,
-        })
+        }, sides=row_label_sides(target.seating_plan))
         pick_blocks, _ = self.pick_blocks(CHANNEL_IDENTIFIER, ctx['generate_form'])
         ctx.update({
             'blocks': blocks,

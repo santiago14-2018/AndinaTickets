@@ -54,6 +54,55 @@
         });
     }
 
+    /* ---------- números de butaca (pantallas del panel) ---------- */
+
+    // La librería no dibuja el número de la butaca: lo agregamos como texto SVG dentro de cada
+    // una (custom_data.number, de seatmap.py). En la vista previa del generador, las butacas del
+    // sector nuevo (custom_data.nuevo) llevan la clase andinaseating-nuevo y control.css las pinta
+    // de naranja. Igual que con los colores de la tienda, la librería redibuja las butacas, así que
+    // se repite cada vez que cambian (solo agrega lo que falta: no hay bucle).
+    var SVG = 'http://www.w3.org/2000/svg';
+
+    function decorate(el, getMap) {
+        var pending = false;
+        function paint() {
+            pending = false;
+            var map = getMap();
+            if (!map) {
+                return;
+            }
+            var data = {};
+            allSeats(map).forEach(function (s) { data[s.id] = s.custom_data || {}; });
+            el.querySelectorAll('g.seat').forEach(function (node) {
+                var d = data[node.id];
+                if (!d) {
+                    return;
+                }
+                node.classList.toggle('andinaseating-nuevo', !!d.nuevo);
+                var text = node.querySelector('text.andinaseating-numero');
+                var number = d.number === undefined || d.number === null ? '' : String(d.number);
+                if (!text && number) {
+                    text = document.createElementNS(SVG, 'text');
+                    text.setAttribute('class', 'andinaseating-numero');
+                    text.setAttribute('text-anchor', 'middle');
+                    text.setAttribute('dy', '0.35em');
+                    text.setAttribute('pointer-events', 'none');
+                    node.appendChild(text);
+                }
+                if (text && text.textContent !== number) {
+                    text.textContent = number;
+                }
+            });
+        }
+        new MutationObserver(function () {
+            if (!pending) {
+                pending = true;
+                window.setTimeout(paint, 0);
+            }
+        }).observe(el, {childList: true, subtree: true});
+        return paint;
+    }
+
     function setSelected(seat, on) {
         if (!seat.svg) {
             seat.selected = on;
@@ -233,6 +282,47 @@
         }
         var timer = null;
         var seq = 0;
+        var submit = form.querySelector('button[type="submit"]');
+        // Errores que vinieron de la página (al tocar "Agregar" con un valor que no sirve): sus
+        // textos están en el JSON gen-errors. Se borran apenas la vista previa dice que ya está bien.
+        var oldErrors = {};
+        var source = document.getElementById('gen-errors');
+        if (source) {
+            var parsed = JSON.parse(source.textContent || '{}');
+            Object.keys(parsed).forEach(function (field) {
+                parsed[field].forEach(function (e) { oldErrors[e.message] = true; });
+            });
+        }
+
+        function showErrors(fieldErrors) {
+            form.querySelectorAll('.form-group.has-error').forEach(function (g) {
+                g.classList.remove('has-error');
+            });
+            form.querySelectorAll('.help-block').forEach(function (b) {
+                if (b.classList.contains('andinaseating-error') || oldErrors[b.textContent.trim()]) {
+                    b.remove();
+                }
+            });
+            var any = false;
+            Object.keys(fieldErrors || {}).forEach(function (name) {
+                var input = form.querySelector('[name="' + name + '"]');
+                var group = input && input.closest('.form-group');
+                if (!group) {
+                    return;
+                }
+                any = true;
+                group.classList.add('has-error');
+                fieldErrors[name].slice().reverse().forEach(function (message) {
+                    var div = document.createElement('div');
+                    div.className = 'help-block andinaseating-error';
+                    div.textContent = message;
+                    input.insertAdjacentElement('afterend', div);
+                });
+            });
+            if (submit) {
+                submit.disabled = any;
+            }
+        }
 
         function refresh() {
             var params = new URLSearchParams(new FormData(form));
@@ -245,6 +335,7 @@
                     if (mine !== seq) {
                         return;  // llegó una respuesta vieja
                     }
+                    showErrors(data.field_errors);
                     if (data.errors) {
                         if (status) {
                             status.textContent = 'Revisá los valores: ' + data.errors.join(' ');
@@ -257,11 +348,13 @@
                     }
                     if (!state.map) {
                         state.map = createMap(el, 'preview');
+                        decorate(el, function () { return state.map; });
                     }
                     state.map.data.replaceData(data.blocks);
                     if (status) {
-                        status.textContent = 'Sector generado: ' + data.sector_seats + ' butacas (en naranja). ' +
-                            'Total de la sala: ' + data.total_seats + '. Todavía no se guardó.';
+                        status.textContent = 'Sector: ' + data.sector_seats + ' butacas (en naranja, con su número)' +
+                            (data.alone ? ', solo. ' : ', junto con los otros sectores. ') +
+                            'La sala quedaría con ' + data.total_seats + ' butacas. Todavía no se guardó.';
                     }
                 })
                 .catch(function () {
@@ -269,6 +362,16 @@
                         status.textContent = 'No se pudo actualizar la vista previa.';
                     }
                 });
+        }
+
+        var withSala = form.querySelector('[name="con_sala"]');
+        var placement = form.querySelector('[name="placement"]');
+        if (withSala && placement) {
+            placement.addEventListener('change', function () {
+                if (placement.value && placement.value !== 'auto') {
+                    withSala.checked = true;  // para ver dónde queda respecto de los otros
+                }
+            });
         }
 
         form.addEventListener('input', function () {
@@ -284,6 +387,58 @@
         }
     }
 
+    /* ---------- alto del plano (pantallas del panel) ---------- */
+
+    // El recuadro se agranda o achica arrastrando la esquina de abajo a la derecha (control.css:
+    // resize: vertical). Al soltar, la librería se reacomoda al tamaño nuevo y se vuelve a ver
+    // la sala entera. El alto elegido se recuerda en este navegador para la próxima vez.
+    function resizable(el, state) {
+        var key = 'andinaseating-alto-' + el.id;
+        try {
+            var saved = parseInt(window.localStorage.getItem(key), 10);
+            if (saved >= 200) {
+                el.style.height = saved + 'px';
+            }
+        } catch (e) {
+            // sin almacenamiento local (ventana privada, etc.): queda el alto de siempre
+        }
+        if (!window.ResizeObserver) {
+            return;
+        }
+        var last = el.clientHeight;
+        var timer = null;
+        new window.ResizeObserver(function () {
+            if (el.clientHeight === last) {
+                return;
+            }
+            last = el.clientHeight;
+            clearTimeout(timer);
+            timer = setTimeout(function () {
+                try {
+                    window.localStorage.setItem(key, String(el.clientHeight));
+                } catch (e) {
+                    // no se recuerda, pero el plano igual se reacomoda
+                }
+                // Los mismos pasos que hace la librería al cargar los sectores (evento ADD_BLOCK).
+                // Se repite un instante después: algunas medidas de la librería se actualizan con
+                // retraso y la primera vez el plano queda un poco corrido.
+                var map = state.map;
+                function fit() {
+                    var blocks = map.data.getBlocks();
+                    map.windowManager.resizeHandler();
+                    map.zoomManager.calculateZoomLevels(blocks);
+                    map.zoomManager.calculateActiveBlocks(blocks);
+                    map.windowManager.resizeHandler();
+                    map.zoomManager.zoomToVenue(false);
+                }
+                if (map && map.windowManager && map.zoomManager) {
+                    fit();
+                    setTimeout(fit, 100);
+                }
+            }, 200);
+        }).observe(el);
+    }
+
     /* ---------- arranque ---------- */
 
     function init(el) {
@@ -294,6 +449,9 @@
         var blocks = source ? JSON.parse(source.textContent) : [];
         var mode = el.getAttribute('data-mode') || 'preview';
         var state = {map: null};
+        if (mode !== 'shop') {
+            resizable(el, state);
+        }
 
         if (blocks.length) {
             var box = mode === 'shop' ? el.closest('.andinaseating') : null;
@@ -305,6 +463,9 @@
             }
             state.map = createMap(el, mode);
             state.map.data.replaceData(blocks);
+            if (mode === 'preview' || mode === 'select') {
+                decorate(el, function () { return state.map; })();
+            }
             if (mode === 'select') {
                 initSelect(el, state.map);
             } else if (mode === 'shop') {

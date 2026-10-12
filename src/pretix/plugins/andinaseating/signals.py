@@ -17,7 +17,7 @@ from pretix.presale.signals import (
 )
 
 from .cargo import cargo_del_carrito
-from .seatmap import event_seats, seat_name, seats_to_blocks
+from .seatmap import event_seats, row_label_sides, seat_name, seats_to_blocks
 
 PRODUCT_COLORS = 6  # number of .andinaseating-cN color classes in seating.css
 
@@ -170,7 +170,8 @@ def andinaseating_render(sender, request, subevent=None, voucher=None, add_to_ca
     return get_template('pretixplugins/andinaseating/selector.html').render({
         'event': sender,
         'rows': rows,
-        'blocks': seats_to_blocks(seats, state=lambda s: map_state[s.obj.pk], titles=True),
+        'blocks': seats_to_blocks(seats, state=lambda s: map_state[s.obj.pk], titles=True,
+                                  sides=row_label_sides(ev.seating_plan)),
         'products': [p for p in products.values() if p['listed']],
         'free_count': free_count,
         'presale_is_running': ev.presale_is_running,

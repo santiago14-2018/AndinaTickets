@@ -26,11 +26,16 @@
 /* Planos dibujados con seatmap-canvas */
 .andina-seatmap {
     position: relative;
-    height: 460px;
+    height: 620px;
+    min-height: 260px;
+    max-height: 1600px;
     border: 1px solid #ddd;
     border-radius: 4px;
     background: #f7f7f7;
     overflow: hidden;
+    /* Se agranda o achica arrastrando la esquina de abajo a la derecha (seatmap-andina.js
+       reacomoda el plano al soltar y recuerda el alto). */
+    resize: vertical;
 }
 .andinaseating-map-legend {
     margin-bottom: 6px;
@@ -57,4 +62,46 @@
    máximo. Las sacamos siempre: en la vista previa se ve mejor y en boletería son clickeables. */
 .andina-seatmap .masks {
     display: none;
+}
+
+/* Número de cada butaca, dibujado por seatmap-andina.js (Salas y Boletería). */
+.andina-seatmap g.seat text.andinaseating-numero {
+    font-size: 10px;
+    font-weight: 700;
+    fill: #1d1a21;
+    font-family: "Bricolage Grotesque", "Open Sans", sans-serif;
+}
+/* Butaca marcada (boletería): se ve el ✓, no el número. */
+.andina-seatmap g.seat.selected text.andinaseating-numero {
+    display: none;
+}
+/* Vista previa del generador: el sector nuevo en naranja (todavía no se guardó). */
+.andina-seatmap g.seat.andinaseating-nuevo .seat-circle {
+    fill: #e69f00 !important;
+    stroke: #b37a00 !important;
+}
+
+/* Nombre del sector que la librería escribe en el medio de cada sector (gris oscuro, no se veía
+   sobre el fondo oscuro). Blanco con un borde oscuro alrededor de cada letra: se lee sobre
+   cualquier fondo. */
+.andina-seatmap g.info text.title {
+    fill: #ffffff !important;
+    stroke: #1d1a21;
+    stroke-width: 6px;
+    stroke-linejoin: round;
+    paint-order: stroke;
+    font-weight: 800;
+}
+
+/* "Ubicación en la sala (opcional)" del alta de sectores, plegada. */
+.andinaseating-ubicacion {
+    margin: 10px 0 15px;
+}
+.andinaseating-ubicacion summary {
+    cursor: pointer;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+.andinaseating-btn-sep {
+    margin-left: 6px;
 }
