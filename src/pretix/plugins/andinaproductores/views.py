@@ -14,6 +14,9 @@ from django.views import View
 from django.views.generic import TemplateView
 
 from pretix.control.views.organizer import OrganizerDetailViewMixin
+from pretix.plugins.andinaseating.cargo import (
+    SETTING as CARGO_SETTING, porcentaje as cargo_porcentaje,
+)
 
 from .report import (
     build_report, event_commission, event_producer_team, render_pdf,
@@ -96,8 +99,19 @@ class EventPdfView(ProducerMixin, View):
         return response
 
 
+def porcentaje_valido(raw, default):
+    """Un porcentaje escrito en la pantalla (acepta coma), o None si no es un número entre 0 y 100."""
+    raw = (raw if raw is not None else str(default)).replace(',', '.').strip() or str(default)
+    try:
+        value = Decimal(raw)
+    except InvalidOperation:
+        return None
+    return value if Decimal('0') <= value <= Decimal('100') else None
+
+
 class ProductoresAdminView(OrganizerDetailViewMixin, TemplateView):
-    """Para la plataforma: qué productor ve cada evento y con qué comisión."""
+    """Para la plataforma: qué productor ve cada evento, con qué comisión y qué cargo por servicio
+    paga el comprador (andinaseating/cargo.py; 10 % si no se cambia)."""
     template_name = 'pretixplugins/andinaproductores/admin.html'
 
     def dispatch(self, request, *args, **kwargs):
@@ -116,6 +130,7 @@ class ProductoresAdminView(OrganizerDetailViewMixin, TemplateView):
             'event': e,
             'team': event_producer_team(e),
             'commission': event_commission(e),
+            'cargo': cargo_porcentaje(e),
         } for e in self.request.organizer.events.order_by('-date_from')]
         ctx['teams_url'] = reverse('control:organizer.teams', kwargs={'organizer': self.request.organizer.slug})
         return ctx
@@ -125,25 +140,24 @@ class ProductoresAdminView(OrganizerDetailViewMixin, TemplateView):
         changed = 0
         for e in request.organizer.events.all():
             raw_team = request.POST.get('team_{}'.format(e.pk))
-            raw_pct = (request.POST.get('commission_{}'.format(e.pk)) or '0').replace(',', '.').strip()
             if raw_team is None:
                 continue
-            try:
-                pct = Decimal(raw_pct)
-                if not Decimal('0') <= pct <= Decimal('100'):
-                    raise InvalidOperation
-            except InvalidOperation:
-                messages.error(request, '{}: la comisión tiene que ser un número entre 0 y 100.'.format(e.name))
+            pct = porcentaje_valido(request.POST.get('commission_{}'.format(e.pk)), '0')
+            cargo = porcentaje_valido(request.POST.get('cargo_{}'.format(e.pk)), cargo_porcentaje(e))
+            if pct is None or cargo is None:
+                messages.error(request, '{}: la comisión y el cargo por servicio tienen que ser números entre '
+                                        '0 y 100.'.format(e.name))
                 return redirect(request.path)
             team = int(raw_team) if raw_team.isdigit() and int(raw_team) in valid_teams else None
-            if team != event_producer_team(e) or pct != event_commission(e):
+            if team != event_producer_team(e) or pct != event_commission(e) or cargo != cargo_porcentaje(e):
                 if team:
                     e.settings.andina_productor_team = team
                 else:
                     e.settings.delete('andina_productor_team')
                 e.settings.andina_comision = str(pct)
+                e.settings.set(CARGO_SETTING, str(cargo))
                 e.log_action('pretix.plugins.andinaproductores.changed', user=request.user,
-                             data={'team': team, 'commission': str(pct)})
+                             data={'team': team, 'commission': str(pct), 'cargo': str(cargo)})
                 changed += 1
         messages.success(request, 'Guardado ({} evento{} con cambios).'.format(changed, '' if changed == 1 else 's'))
         return redirect(request.path)

@@ -33,10 +33,12 @@ from django.utils.timezone import now
 from i18nfield.strings import LazyI18nString
 
 from pretix.base.models import (
-    CachedFile, Order, OrderPayment, OrderPosition, Quota,
+    CachedFile, Order, OrderFee, OrderPayment, OrderPosition, Quota,
 )
 from pretix.base.services.modelimport import DataImportError, import_orders
 from pretix.base.services.orders import OrderChangeManager, _cancel_order
+
+from .cargo import CARGO_INTERNO, agregar_a_pedido as agregar_cargo
 
 CHANNEL_IDENTIFIER = 'api.boleteria'
 COURTESY_CHANNEL = 'api.cortesias'  # cortesías por email (cortesias.py)
@@ -375,8 +377,9 @@ def parse_codes(text):
 def sell_tickets(event, codes, method, user):
     """
     Vende en el mostrador los boletos de papel con esos códigos: quedan pagados (medio de pago
-    "Boletería" de pretix, con el medio y quién vendió) y desde ahí entran en la puerta. Todo o
-    nada: si un código no sirve, no se vende ninguno. Devuelve ([OrderPosition], total).
+    "Boletería" de pretix, con el medio y quién vendió) y desde ahí entran en la puerta. Al
+    precio se le suma el cargo por servicio (cargo.py), igual que online. Todo o nada: si un
+    código no sirve, no se vende ninguno. Devuelve ([OrderPosition], total cobrado).
     """
     if not codes:
         raise ValidationError('Escaneá o escribí al menos un código.')
@@ -408,6 +411,9 @@ def sell_tickets(event, codes, method, user):
     total = Decimal('0.00')
     for p in positions:
         order = p.order
+        # Cargo por servicio también en el mostrador: así no conviene más comprar acá que online.
+        agregar_cargo(order, user=user)
+        order.refresh_from_db()
         payment = order.payments.create(
             provider='boxoffice', amount=order.pending_sum, state=OrderPayment.PAYMENT_STATE_CREATED,
             info=json.dumps({
@@ -436,8 +442,15 @@ def cancel_unsold(event, subevent, user):
     return n
 
 
+def cargo_de_pedidos(orders):
+    """Suma del cargo por servicio de esos pedidos (la parte de AndinaTickets)."""
+    return sum((f.value for f in OrderFee.objects.filter(order__in=orders, internal_type=CARGO_INTERNO)),
+               Decimal('0.00'))
+
+
 def box_office_summary(event, subevent):
-    """Caja de la boletería en esta fecha: lo vendido por medio de pago y por vendedor."""
+    """Caja de la boletería en esta fecha: lo vendido por medio de pago y por vendedor, y cuánto
+    de eso es cargo por servicio (de AndinaTickets) y cuánto entradas (del productor)."""
     payments = OrderPayment.objects.filter(
         order__event=event, order__sales_channel__identifier=CHANNEL_IDENTIFIER, provider='boxoffice',
         state=OrderPayment.PAYMENT_STATE_CONFIRMED, order__all_positions__subevent=subevent,
@@ -453,7 +466,10 @@ def box_office_summary(event, subevent):
             row['tickets'] += pay.order.positions.count()
             row['total'] += pay.amount
         total += pay.amount
+    cargo = cargo_de_pedidos([pay.order_id for pay in payments])
     return {
+        'cargo': cargo,
+        'entradas': total - cargo,
         'by_method': sorted(by_method.values(), key=lambda r: r['name']),
         'by_seller': sorted(by_seller.values(), key=lambda r: r['name']),
         'total': total,

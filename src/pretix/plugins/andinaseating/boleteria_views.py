@@ -21,10 +21,11 @@ from pretix.control.permissions import EventPermissionRequiredMixin
 from .boleteria import (
     CHANNEL_IDENTIFIER, GENERATED_COMMENT, KIND_COURTESY, PAYMENT_METHODS,
     STATE_CANCELED, STATE_SOLD, STATE_UNSOLD, STATE_VALID, boleteria_positions,
-    box_office_summary, cancel_ticket, cancel_unsold, check_quota,
-    enable_for_event, generate_tickets, generated_lotes, import_tickets,
-    lote_orders, parse_codes, parse_tickets_csv, resolve_tickets,
-    seats_by_guid, sell_tickets, ticket_state, unnumbered_items,
+    box_office_summary, cancel_ticket, cancel_unsold, cargo_de_pedidos,
+    check_quota, enable_for_event, generate_tickets, generated_lotes,
+    import_tickets, lote_orders, parse_codes, parse_tickets_csv,
+    resolve_tickets, seats_by_guid, sell_tickets, ticket_state,
+    unnumbered_items,
 )
 from .forms import GenerateForm, SellForm, TicketsUploadForm
 from .imprenta import printer_package
@@ -242,9 +243,11 @@ class BoleteriaView(EventDateMixin, EventPermissionRequiredMixin, TemplateView):
             return self.render_to_response(self.get_context_data(sell_form=form, errors=e.messages))
         n = len(positions)
         detail = ', '.join(str(p.seat) if p.seat else str(p.item.name) for p in positions[:6])
-        messages.success(self.request, 'Vendido{s} {n} boleto{s}: {total} en {method}. Ya entran en la puerta. '
-                                       '({detail}{more})'.format(
+        cargo = cargo_de_pedidos([p.order_id for p in positions])
+        messages.success(self.request, 'Vendido{s} {n} boleto{s}: {total} en {method} (incluye {cargo} de cargo por '
+                                       'servicio). Ya entran en la puerta. ({detail}{more})'.format(
                                            s='' if n == 1 else 's', n=n, total=money_filter(total, event.currency),
+                                           cargo=money_filter(cargo, event.currency),
                                            method=dict(PAYMENT_METHODS)[method].lower(), detail=detail,
                                            more='…' if n > 6 else ''))
         return redirect(self.url())

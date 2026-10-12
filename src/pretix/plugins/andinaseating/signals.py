@@ -8,12 +8,15 @@ from django.templatetags.static import static
 from django.urls import resolve, reverse
 from django.utils.html import format_html
 
+from pretix.base.signals import order_fee_calculation
 from pretix.base.templatetags.money import money_filter
 from pretix.control.signals import nav_event, nav_organizer
 from pretix.presale.signals import (
-    html_head, render_seating_plan, seatingframe_html_head,
+    fee_calculation_for_cart, html_head, render_seating_plan,
+    seatingframe_html_head,
 )
 
+from .cargo import cargo_del_carrito
 from .seatmap import event_seats, seat_name, seats_to_blocks
 
 PRODUCT_COLORS = 6  # number of .andinaseating-cN color classes in seating.css
@@ -175,3 +178,15 @@ def andinaseating_render(sender, request, subevent=None, voucher=None, add_to_ca
         # product list if there are other products; one button submits everything.
         'show_submit': free_count and ev.presale_is_running and not add_to_cart_below,
     }, request=request)
+
+
+# Cargo por servicio (cargo.py): pretix pregunta los cargos para mostrar el carrito y otra vez al
+# crear el pedido; las dos respuestas tienen que coincidir.
+@receiver(fee_calculation_for_cart, dispatch_uid="andinaseating_cargo_carrito")
+def andinaseating_cargo_carrito(sender, positions=None, **kwargs):
+    return cargo_del_carrito(sender, positions or [])
+
+
+@receiver(order_fee_calculation, dispatch_uid="andinaseating_cargo_pedido")
+def andinaseating_cargo_pedido(sender, positions=None, **kwargs):
+    return cargo_del_carrito(sender, positions or [])

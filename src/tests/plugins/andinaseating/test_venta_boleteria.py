@@ -4,9 +4,11 @@
 #
 """
 Boletos de papel de venta: se activan al venderlos en el mostrador. Hasta entonces no entran
-en la puerta; al venderlos queda registrado el medio de pago, quién vendió y el total.
+en la puerta; al venderlos queda registrado el medio de pago, quién vendió y el total, que
+incluye el 10 % de cargo por servicio (como online).
 """
 import json
+from decimal import Decimal
 
 import pytest
 from django.core.exceptions import ValidationError
@@ -21,6 +23,8 @@ from pretix.plugins.andinaseating.boleteria import (
 )
 
 from .conftest import PRICE
+
+CON_CARGO = PRICE * Decimal('1.10')  # precio + 10 % de cargo por servicio
 
 
 def generate(event, user, guids, kind=KIND_SALE):
@@ -47,7 +51,7 @@ def test_sin_vender_no_entra_y_vendido_si(env, puerta):
         assert e.value.code == 'unpaid'
 
         sold, total = sell_tickets(event, [p.secret], 'efectivo', user)
-        assert total == PRICE
+        assert total == CON_CARGO
         p.order.refresh_from_db()
         assert p.order.status == Order.STATUS_PAID
         perform_checkin(p, puerta, {}, user=user)  # ahora entra
@@ -63,12 +67,13 @@ def test_la_venta_registra_medio_y_vendedor(env):
         sell_tickets(event, [positions[2].secret], 'debito', user)
         pay = positions[2].order.payments.get()
         info = json.loads(pay.info)
-        assert pay.provider == 'boxoffice' and pay.amount == PRICE
+        assert pay.provider == 'boxoffice' and pay.amount == CON_CARGO
         assert (info['medio'], info['vendedor']) == ('debito', 'boleteria@example.com')
         summary = box_office_summary(event, None)
-    assert summary['total'] == 3 * PRICE and summary['tickets'] == 3
+    assert summary['total'] == 3 * CON_CARGO and summary['tickets'] == 3
+    assert (summary['entradas'], summary['cargo']) == (3 * PRICE, 3 * PRICE / 10)
     assert [(r['name'], r['tickets'], r['total']) for r in summary['by_method']] == [
-        ('Efectivo', 2, 2 * PRICE), ('Tarjeta de débito', 1, PRICE)]
+        ('Efectivo', 2, 2 * CON_CARGO), ('Tarjeta de débito', 1, CON_CARGO)]
     assert summary['by_seller'][0]['name'] == 'boleteria@example.com'
 
 
@@ -115,7 +120,7 @@ def test_boletos_de_la_imprenta_tambien_se_activan_al_vender(env):
         assert errors == []
         import_tickets(event, None, resolved, user, 'imprenta.csv', kind=KIND_SALE)
         sold, total = sell_tickets(event, parse_codes('IMP001\n IMP002 \n\nIMP001\n'), 'credito', user)
-    assert len(sold) == 2 and total == 2 * PRICE
+    assert len(sold) == 2 and total == 2 * CON_CARGO
 
 
 @pytest.mark.django_db

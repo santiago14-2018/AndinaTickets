@@ -3,7 +3,9 @@
 {% block inner %}
     <h1>Productores</h1>
     <p>
-        Asigná a cada evento el equipo del productor que puede ver sus ventas y la comisión del servicio.
+        Asigná a cada evento el equipo del productor que puede ver sus ventas, la comisión del servicio (la paga el
+        productor) y el cargo por servicio (lo paga el comprador sobre el precio de la entrada, online y en la
+        boletería; 10 % si no se cambia).
         El productor solo ve <strong>Mis ventas</strong>: no tiene acceso a ninguna tarea operativa ni a los
         datos de los compradores.
     </p>
@@ -25,6 +27,7 @@
                     <th>Evento</th>
                     <th>Productor (equipo)</th>
                     <th>Comisión del servicio (%)</th>
+                    <th>Cargo por servicio (%)</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -42,6 +45,10 @@
                         <td>
                             <input type="text" inputmode="decimal" name="commission_{{ r.event.pk }}" class="form-control"
                                    value="{{ r.commission }}" aria-label="Comisión de {{ r.event.name }}">
+                        </td>
+                        <td>
+                            <input type="text" inputmode="decimal" name="cargo_{{ r.event.pk }}" class="form-control"
+                                   value="{{ r.cargo }}" aria-label="Cargo por servicio de {{ r.event.name }}">
                         </td>
                     </tr>
                 {% endfor %}

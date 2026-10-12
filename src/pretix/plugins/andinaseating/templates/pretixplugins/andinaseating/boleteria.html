@@ -64,7 +64,11 @@
                     {% endfor %}
                     </tbody>
                     {% if summary.by_method %}
-                        <tfoot><tr><th>Total cobrado</th><th class="text-right">{{ summary.tickets }}</th><th class="text-right">{{ summary.total|money:request.event.currency }}</th></tr></tfoot>
+                        <tfoot>
+                            <tr><th>Total cobrado</th><th class="text-right">{{ summary.tickets }}</th><th class="text-right">{{ summary.total|money:request.event.currency }}</th></tr>
+                            <tr class="text-muted"><td colspan="2">Entradas (del productor)</td><td class="text-right">{{ summary.entradas|money:request.event.currency }}</td></tr>
+                            <tr class="text-muted"><td colspan="2">Cargo por servicio (de AndinaTickets)</td><td class="text-right">{{ summary.cargo|money:request.event.currency }}</td></tr>
+                        </tfoot>
                     {% endif %}
                 </table>
                 {% if summary.by_seller|length > 1 %}
