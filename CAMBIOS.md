@@ -30,6 +30,11 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 - [PRETIX] Plantillas base (tienda, panel, ingreso, error y check-in web): la dirección del ícono de
   la pestaña lleva `?v=andina`, para que el navegador deje de mostrar el ícono de pretix que tenía
   guardado de antes (el servidor ya entregaba el nuestro).
+- [PROPIO] Documentación (en `privado/documentacion/`, no va a Git): Manual de usuario v7. Capítulo 15
+  nuevo, "El diseño de la entrada": el editor de entradas en PDF, con un ejemplo paso a paso de una
+  entrada simple (armado en DEMO – Hamlet como "Entrada simple (ejemplo del manual)"). Al día 7.3 y
+  7.4 (Plan de butacas por sectores y la tienda con un recuadro por sector); las preguntas frecuentes
+  pasan al capítulo 16.
 - [PRETIX] `settings.py`: los eventos nuevos arrancan con nuestros complementos activos (butacas,
   boletería, cortesías y cargo por servicio; Mercado Pago; entradas en PDF; check-in web). Antes
   pretix solo activaba correo, estadísticas y listas de ingreso, y en un evento nuevo no aparecía
