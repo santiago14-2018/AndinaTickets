@@ -241,8 +241,13 @@ if REQUEST_ID_HEADER in config.cp.BOOLEAN_STATES:
 if config.getboolean('pretix', 'trust_x_forwarded_proto', fallback=False):
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
+# AndinaTickets: los eventos nuevos arrancan con nuestros complementos activos: butacas, boletería,
+# cortesías y cargo por servicio (andinaseating), cobro con Mercado Pago, entradas en PDF y
+# check-in web (pretix solo activaba correo, estadísticas y listas de ingreso).
 PRETIX_PLUGINS_DEFAULT = config.get('pretix', 'plugins_default',
-                                    fallback='pretix.plugins.sendmail,pretix.plugins.statistics,pretix.plugins.checkinlists')
+                                    fallback='pretix.plugins.sendmail,pretix.plugins.statistics,pretix.plugins.checkinlists,'
+                                             'pretix.plugins.andinaseating,pretix.plugins.andinamercadopago,'
+                                             'pretix.plugins.ticketoutputpdf,pretix.plugins.webcheckin')
 PRETIX_PLUGINS_ORGANIZER_DEFAULT = config.get('pretix', 'plugins_organizer_default',
                                               fallback='')
 PRETIX_PLUGINS_EXCLUDE = config.get('pretix', 'plugins_exclude', fallback='').split(',')

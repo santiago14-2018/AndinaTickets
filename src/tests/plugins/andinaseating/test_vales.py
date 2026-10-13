@@ -24,10 +24,9 @@ def vale(env):
 
 
 def plan_blocks(html):
-    """Butacas del plano (lo que dibuja seatmap-canvas), por nombre de sector."""
-    data = re.search(r'<script id="andinaseating-blocks" type="application/json">(.*?)</script>', html, re.S)
-    blocks = json.loads(data.group(1))
-    return {b['title']: b['seats'] for b in blocks}
+    """Butacas de los planos (lo que dibuja seatmap-canvas; uno por sector), por nombre de sector."""
+    maps = re.findall(r'<script id="andinaseating-blocks-\d+" type="application/json">(.*?)</script>', html, re.S)
+    return {b['title']: b['seats'] for data in maps for b in json.loads(data)}
 
 
 @pytest.mark.django_db

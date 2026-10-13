@@ -1,13 +1,24 @@
 {% load i18n %}
 {% load money %}
 {% load static %}
-<section class="andinaseating panel panel-default" aria-labelledby="andinaseating-title">
+{% comment %}
+    Un recuadro por sector habilitado (con producto), cada uno con su plano, su leyenda y su
+    lista. Todas las casillas van en el mismo formulario: el botón de abajo envía todo.
+{% endcomment %}
+{% for sector in sectors %}
+<section class="andinaseating andinaseating-sector panel panel-default"
+         aria-labelledby="andinaseating-title-{{ sector.index }}">
     <div class="panel-heading">
-        <h3 class="panel-title" id="andinaseating-title">{% trans "Seating plan" %}</h3>
+        <h3 class="panel-title" id="andinaseating-title-{{ sector.index }}">
+            {{ sector.name|default:_("Seating plan") }}
+            {% if not sector.free_count %}
+                <span class="label label-default andinaseating-sold-out">{% trans "Sold out" %}</span>
+            {% endif %}
+        </h3>
     </div>
     <div class="panel-body">
         <ul class="andinaseating-legend list-unstyled">
-            {% for p in products %}
+            {% for p in sector.products %}
                 <li>
                     <span class="andinaseating-swatch andinaseating-c{{ p.color }}"></span>
                     <strong>{{ p.item.name }}</strong> – {{ p.price|money:event.currency }}
@@ -16,18 +27,17 @@
             {% endfor %}
             <li><span class="andinaseating-swatch andinaseating-swatch-taken"></span> {% trans "Unavailable" %}</li>
         </ul>
-        <div id="andinaseating-map" class="andina-seatmap andinaseating-shop-map" data-source="andinaseating-blocks"
-             data-mode="shop" aria-hidden="true"></div>
-        <p class="andinaseating-map-help text-muted small">
-            Tocá una butaca para elegirla; tocá de nuevo para quitarla. Con dos dedos o la rueda del mouse podés acercar.
-        </p>
+        <div id="andinaseating-map-{{ sector.index }}" class="andina-seatmap andinaseating-shop-map"
+             data-source="andinaseating-blocks-{{ sector.index }}" data-mode="shop" aria-hidden="true"></div>
+        {% if sector.first %}
+            <p class="andinaseating-map-help text-muted small">
+                Tocá una butaca para elegirla; tocá de nuevo para quitarla. Con dos dedos o la rueda del mouse podés acercar.
+            </p>
+        {% endif %}
         <details class="andinaseating-list" open>
         <summary>Ver las butacas como lista</summary>
         <div class="andinaseating-grid">
-            {% for row in rows %}
-                {% if row.zone_header %}
-                    <div class="andinaseating-zone">{{ row.zone_header }}</div>
-                {% endif %}
+            {% for row in sector.rows %}
                 <div class="andinaseating-row">
                     <div class="andinaseating-row-label">{{ row.label }}</div>
                     <div class="andinaseating-seats">
@@ -52,18 +62,21 @@
         </div>
         </details>
     </div>
-    {{ blocks|json_script:"andinaseating-blocks" }}
-    <script src="{% static "pretixplugins/andinaseating/vendor/seatmap-canvas/seatmap.canvas.min.js" %}"></script>
-    <script src="{% static "pretixplugins/andinaseating/seatmap-andina.js" %}"></script>
-    {% if show_submit %}
-        <div class="panel-footer text-right">
-            <button type="submit" class="btn btn-primary btn-lg">
-                <i class="fa fa-shopping-cart" aria-hidden="true"></i> {% trans "Add to cart" %}
-            </button>
-        </div>
-    {% elif not free_count %}
-        <div class="panel-footer text-right">
-            <strong>{% trans "Sold out" %}</strong>
-        </div>
+    {{ sector.blocks|json_script:sector.json_id }}
+    {% if sector.last %}
+        <script src="{% static "pretixplugins/andinaseating/vendor/seatmap-canvas/seatmap.canvas.min.js" %}"></script>
+        <script src="{% static "pretixplugins/andinaseating/seatmap-andina.js" %}"></script>
+        {% if show_submit %}
+            <div class="panel-footer text-right">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="fa fa-shopping-cart" aria-hidden="true"></i> {% trans "Add to cart" %}
+                </button>
+            </div>
+        {% elif not free_count %}
+            <div class="panel-footer text-right">
+                <strong>{% trans "Sold out" %}</strong>
+            </div>
+        {% endif %}
     {% endif %}
 </section>
+{% endfor %}

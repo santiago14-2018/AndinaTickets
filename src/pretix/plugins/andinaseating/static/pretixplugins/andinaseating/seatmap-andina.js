@@ -471,6 +471,7 @@
             } else if (mode === 'shop') {
                 initShop(el, state.map);
                 // Con el plano funcionando, la lista queda plegada (sigue siendo la que se envía).
+                // (Cada sector de la tienda es su propio recuadro, con su plano y su lista.)
                 var list = box.querySelector('details.andinaseating-list');
                 if (list) {
                     list.open = false;

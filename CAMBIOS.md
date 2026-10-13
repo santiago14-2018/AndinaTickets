@@ -22,6 +22,19 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 
 ---
 
+## 2026-10-13
+
+- [PROPIO] `andinaseating` (tienda): un recuadro por sector, cada uno con su plano, su leyenda y su
+  lista de butacas. Solo aparecen los sectores habilitados (con producto en el evento); los que
+  quedaron "Sin asignar" no se muestran. Antes se veía toda la sala junta en un solo plano.
+- [PRETIX] Plantillas base (tienda, panel, ingreso, error y check-in web): la dirección del ícono de
+  la pestaña lleva `?v=andina`, para que el navegador deje de mostrar el ícono de pretix que tenía
+  guardado de antes (el servidor ya entregaba el nuestro).
+- [PRETIX] `settings.py`: los eventos nuevos arrancan con nuestros complementos activos (butacas,
+  boletería, cortesías y cargo por servicio; Mercado Pago; entradas en PDF; check-in web). Antes
+  pretix solo activaba correo, estadísticas y listas de ingreso, y en un evento nuevo no aparecía
+  "Plan de butacas" ni se cobraba el cargo por servicio.
+
 ## 2026-10-12
 
 - [PRETIX] `settings.py`: plantillas en memoria también en desarrollo, y en desarrollo los estilos

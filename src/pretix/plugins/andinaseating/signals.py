@@ -111,16 +111,28 @@ def andinaseating_render(sender, request, subevent=None, voucher=None, add_to_ca
     price_overrides = subevent.item_price_overrides if subevent else {}
 
     products = {}
-    rows = []
+    # Un recuadro por sector, cada uno con su plano, su leyenda y su lista. Solo los sectores
+    # habilitados (con producto): los que quedaron "Sin asignar" en el evento no se muestran.
+    sectors = []
+    sector_by_zone = {}
     row_by_key = {}
     map_state = {}  # datos de cada butaca para el plano (seatmap-canvas)
     seats = event_seats(ev.seats.select_related('product'))
+    enabled_zones = {s.zone or '' for s in seats if s.obj.product_id}
     for s in seats:
         seat = s.obj
-        key = (seat.zone_name, seat.row_name)
+        zone = s.zone or ''
+        if zone not in enabled_zones:
+            continue
+        if zone not in sector_by_zone:
+            sector_by_zone[zone] = {'name': zone, 'rows': [], 'seats': [], 'free': {}}
+            sectors.append(sector_by_zone[zone])
+        sector = sector_by_zone[zone]
+        sector['seats'].append(s)
+        key = (zone, seat.row_name)
         if key not in row_by_key:
-            row_by_key[key] = {'zone': seat.zone_name, 'label': seat.row_label or seat.row_name, 'seats': []}
-            rows.append(row_by_key[key])
+            row_by_key[key] = {'label': seat.row_label or seat.row_name, 'seats': []}
+            sector['rows'].append(row_by_key[key])
 
         item = seat.product
         free = _is_sellable(item, voucher) and seat.pk in free_ids
@@ -132,10 +144,9 @@ def andinaseating_render(sender, request, subevent=None, voucher=None, add_to_ca
                 'price': voucher.calculate_price(price) if voucher else price,
                 'listed': not voucher or voucher.applies_to(item),
                 'color': len(products) % PRODUCT_COLORS,
-                'free': 0,
             }
-        if free:
-            products[item.pk]['free'] += 1
+        if item:
+            sector['free'][item.pk] = sector['free'].get(item.pk, 0) + (1 if free else 0)
         field = 'seat_{}'.format(item.pk) if item else ''
         row_by_key[key]['seats'].append({
             'seat': seat,
@@ -154,25 +165,33 @@ def andinaseating_render(sender, request, subevent=None, voucher=None, add_to_ca
             # Cartel al pasar el mouse: un renglón por cada salto de línea.
             'title': seat_name(s) + '\n' + detail,
             'custom_data': {
-                'row': s.row_label or s.row, 'zone': s.zone or '', 'field': field,
+                'row': s.row_label or s.row, 'zone': zone, 'field': field,
                 # El mismo color del producto que en la leyenda y la lista (.andinaseating-cN).
                 'color': products[item.pk]['color'] if item else None,
             },
         }
 
-    # Show the zone name only when it changes, so multi-sector plans read as sections.
-    last_zone = None
-    for r in rows:
-        r['zone_header'] = r['zone'] if r['zone'] != last_zone else None
-        last_zone = r['zone']
+    if not sectors:
+        return ""
 
-    free_count = sum(p['free'] for p in products.values())
+    sides = row_label_sides(ev.seating_plan)
+    for i, sector in enumerate(sectors):
+        sector['index'] = i
+        sector['json_id'] = 'andinaseating-blocks-{}'.format(i)
+        sector['first'] = i == 0
+        sector['last'] = i == len(sectors) - 1
+        sector['products'] = [
+            dict(products[pk], free=n) for pk, n in sector['free'].items() if products[pk]['listed']
+        ]
+        sector['free_count'] = sum(sector['free'].values())
+        # Cada plano con su sector solo; el nombre va en el título del recuadro.
+        sector['blocks'] = seats_to_blocks(sector.pop('seats'), state=lambda s: map_state[s.obj.pk],
+                                           sides=sides)
+
+    free_count = sum(sector['free_count'] for sector in sectors)
     return get_template('pretixplugins/andinaseating/selector.html').render({
         'event': sender,
-        'rows': rows,
-        'blocks': seats_to_blocks(seats, state=lambda s: map_state[s.obj.pk], titles=True,
-                                  sides=row_label_sides(ev.seating_plan)),
-        'products': [p for p in products.values() if p['listed']],
+        'sectors': sectors,
         'free_count': free_count,
         'presale_is_running': ev.presale_is_running,
         # On the shop front page the core renders its own "Add to cart" button below the
