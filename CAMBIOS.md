@@ -22,6 +22,27 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 
 ---
 
+## 2026-10-14
+
+- [PROPIO] `andinaseating` (boletería y cortesías): los planos muestran solo los sectores habilitados
+  (con producto), igual que la tienda. Guardar las reservas de boletería no toca las butacas de los
+  sectores ocultos (antes se habrían liberado). Función común `enabled_seats` en `seatmap.py`.
+- [PROPIO] `andinaseating` (boletería y cortesías): en un evento con plano también se pueden generar
+  boletos y dar cortesías de los productos sin butaca (por ejemplo "Gallinero"): campo "Producto sin
+  numerar" con su cantidad, o butacas en el plano. Antes solo se podían elegir butacas.
+- [PROPIO] `andinaseating` (boletería, "Cargar boletos impresos"): también se cargan boletos sin
+  numerar que traen la imprenta o el productor, con columnas `codigo;producto` (pueden ir en el mismo
+  archivo que los numerados). Controla el cupo del producto y que el código tenga hasta 32 letras o
+  números. La sección aparece también en eventos sin plano.
+- [PROPIO] Documentación (en `privado/documentacion/`, no va a Git): "Guía para imprentas y
+  productores" v1, para quien imprime sus propios boletos: reglas de los códigos (al azar, hasta 32
+  letras o números), cómo va el QR en el boleto, la planilla CSV (numerados y sin numerar) y la prueba
+  con muestras antes de imprimir.
+- [PROPIO] Documentación (en `privado/documentacion/`, no va a Git): Manual de usuario v9. Sección nueva
+  "Cargo por servicio y comisión" (capítulo 12: qué es cada uno, dónde se cargan, el carrito y la
+  boletería), Figura 40 (Productores) nueva, capítulo 10 al día (sectores habilitados, "Producto sin
+  numerar", venta con cargo), datos de la demo y dos preguntas frecuentes nuevas.
+
 ## 2026-10-13
 
 - [PROPIO] `andinaseating` (tienda): un recuadro por sector, cada uno con su plano, su leyenda y su
@@ -35,6 +56,16 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
   entrada simple (armado en DEMO – Hamlet como "Entrada simple (ejemplo del manual)"). Al día 7.3 y
   7.4 (Plan de butacas por sectores y la tienda con un recuadro por sector); las preguntas frecuentes
   pasan al capítulo 16.
+- [PROPIO] Documentación (en `privado/documentacion/`, no va a Git): Manual de usuario v8. 7.1 "Salas"
+  y 7.2 "Armar un sector con el generador" rehechas con la pantalla nueva (alta de un sector al entrar,
+  "Nuevo sector", "Ver la sala completa", lista "Sectores" con Editar, Exportar y Quitar, "Exportar
+  sala completa", numeración impar o par, letra de la fila a un lado o a los dos, "Ubicación en la
+  sala" y subir un sector desde CSV o JSON), con los valores reales de la demo y tres capturas nuevas
+  sin la marca de pretix (las figuras siguientes corren un número). Los títulos ya no quedan solos al
+  pie de una hoja.
+- [PROPIO] `privado/LEEME.md`: la carpeta privada se respalda en el repositorio privado
+  `AndinaTickets-Privado` (aparte, con `respaldar.ps1`: lo privado de AndinaTickets, la firma de
+  AndinaScan y la base de Liquidaciones; los `.env` no, van al gestor de contraseñas).
 - [PRETIX] `settings.py`: los eventos nuevos arrancan con nuestros complementos activos (butacas,
   boletería, cortesías y cargo por servicio; Mercado Pago; entradas en PDF; check-in web). Antes
   pretix solo activaba correo, estadísticas y listas de ingreso, y en un evento nuevo no aparecía

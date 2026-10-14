@@ -29,7 +29,10 @@ from .boleteria import (
 )
 from .forms import GenerateForm, SellForm, TicketsUploadForm
 from .imprenta import printer_package
-from .seatmap import event_seats, row_label_sides, seats_to_blocks
+from .seatmap import (
+    enabled_seats, enabled_zones, event_seats, row_label_sides,
+    seats_to_blocks,
+)
 
 
 class EventDateMixin:
@@ -80,7 +83,7 @@ class EventDateMixin:
         """Plano para elegir butacas libres para el canal (marcadas las del formulario, si volvió con error)."""
         free = set(self.target.free_seats(sales_channel=channel_identifier).values_list('pk', flat=True))
         chosen = set((form.data.get('seats') or '').split(',')) if form is not None and form.is_bound else set()
-        seats = event_seats(self.target.seats.all())
+        seats = enabled_seats(event_seats(self.target.seats.all()))
         return seats_to_blocks(seats, state=lambda s: {
             'salable': s.obj.pk in free, 'selected': s.obj.pk in free and s.guid in chosen,
         }, sides=row_label_sides(self.target.seating_plan)), seats
@@ -97,7 +100,7 @@ class EventDateMixin:
 
     def pick(self, form, channel):
         """(butacas, producto, cantidad, errores) a partir de un PickForm válido."""
-        if self.has_plan:
+        if form.cleaned_data.get('guids'):
             seats, errors = seats_by_guid(self.target, form.cleaned_data['guids'], channel)
             return seats, None, 0, errors
         item, quantity = form.cleaned_data['item'], form.cleaned_data['quantity']
@@ -137,6 +140,7 @@ class BoleteriaView(EventDateMixin, EventPermissionRequiredMixin, TemplateView):
             'errors': kwargs.get('errors', []),
             'positions': positions,
             'generated': generated_lotes(event, self.subevent),
+            'unnumbered': list(unnumbered_items(event)),
             'summary': box_office_summary(event, self.subevent),
             'paper': {
                 'unsold': states.count(STATE_UNSOLD),
@@ -149,7 +153,7 @@ class BoleteriaView(EventDateMixin, EventPermissionRequiredMixin, TemplateView):
             return ctx
 
         free = self.free_for_boleteria()
-        seats = event_seats(target.seats.all())
+        seats = enabled_seats(event_seats(target.seats.all()))
         blocks = seats_to_blocks(seats, state=lambda s: {
             'salable': s.obj.pk in free,
             'selected': s.obj.pk in free and s.obj.blocked,
@@ -179,19 +183,21 @@ class BoleteriaView(EventDateMixin, EventPermissionRequiredMixin, TemplateView):
             return self.post_generate()
         if action == 'cancel':
             return self.post_cancel()
+        if action == 'import':
+            return self.post_import()
         if not self.has_plan:
             raise Http404()
         if action == 'reserve':
             return self.post_reserve()
-        if action == 'import':
-            return self.post_import()
         return redirect(self.url())
 
     def post_reserve(self):
         wanted = {g for g in self.request.POST.get('blocked', '').split(',') if g}
         free = self.free_for_boleteria()
         changed = []
-        for seat in self.target.seats.filter(pk__in=free):
+        # Solo los sectores que muestra el plano: los "Sin asignar" no están, y sus reservas quedan como estaban.
+        zones = enabled_zones(self.target.seats.all())
+        for seat in self.target.seats.filter(pk__in=free, zone_name__in=zones):
             blocked = seat.seat_guid in wanted
             if seat.blocked != blocked:
                 seat.blocked = blocked

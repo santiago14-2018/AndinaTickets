@@ -16,4 +16,5 @@ Va acá lo que no puede ser público:
 Las credenciales de Mercado Pago **no** van acá. Se cargan en el panel, en *Parametrizaciones
 globales → Ajustes*, y quedan guardadas en la base de datos.
 
-Hay que hacer copia de seguridad de esta carpeta por otro medio, porque GitHub no la tiene.
+Este repositorio no la tiene: se respalda en el repositorio privado `AndinaTickets-Privado`
+(`D:\Ticketing\AndinaTickets-Privado`), con su `respaldar.ps1`. Ver el LEEME.md de ese repositorio.

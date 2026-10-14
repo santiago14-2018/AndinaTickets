@@ -17,7 +17,9 @@ from pretix.presale.signals import (
 )
 
 from .cargo import cargo_del_carrito
-from .seatmap import event_seats, row_label_sides, seat_name, seats_to_blocks
+from .seatmap import (
+    enabled_seats, event_seats, row_label_sides, seat_name, seats_to_blocks,
+)
 
 PRODUCT_COLORS = 6  # number of .andinaseating-cN color classes in seating.css
 
@@ -117,13 +119,10 @@ def andinaseating_render(sender, request, subevent=None, voucher=None, add_to_ca
     sector_by_zone = {}
     row_by_key = {}
     map_state = {}  # datos de cada butaca para el plano (seatmap-canvas)
-    seats = event_seats(ev.seats.select_related('product'))
-    enabled_zones = {s.zone or '' for s in seats if s.obj.product_id}
+    seats = enabled_seats(event_seats(ev.seats.select_related('product')))
     for s in seats:
         seat = s.obj
         zone = s.zone or ''
-        if zone not in enabled_zones:
-            continue
         if zone not in sector_by_zone:
             sector_by_zone[zone] = {'name': zone, 'rows': [], 'seats': [], 'free': {}}
             sectors.append(sector_by_zone[zone])

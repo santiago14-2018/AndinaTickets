@@ -163,6 +163,20 @@ def layout_seats(layout):
     return plan_seats(SeatingPlan(layout=json.dumps(layout)))
 
 
+def enabled_zones(queryset):
+    """Sectores habilitados de un evento o fecha: los que tienen alguna butaca con producto."""
+    return set(queryset.filter(product__isnull=False).values_list('zone_name', flat=True).distinct())
+
+
+def enabled_seats(seats):
+    """
+    Solo las butacas (de ``event_seats``) de los sectores habilitados. Los que quedaron "Sin
+    asignar" en Plan de butacas no se venden: no se muestran en la tienda ni en la boletería.
+    """
+    zones = {s.zone or '' for s in seats if s.obj.product_id}
+    return [s for s in seats if (s.zone or '') in zones]
+
+
 def event_seats(queryset):
     """Butacas de un evento o fecha (modelo Seat)."""
     return [

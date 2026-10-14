@@ -141,44 +141,56 @@
                 <button type="submit" class="btn btn-primary btn-save">Guardar reservas</button>
             </div>
         </form>
-
-        <form method="post" enctype="multipart/form-data" class="panel panel-default">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="import">
-            {% if subevent %}<input type="hidden" name="fecha" value="{{ subevent.pk }}">{% endif %}
-            <div class="panel-heading"><h3 class="panel-title">2. Cargar boletos impresos (los números los pone la imprenta)</h3></div>
-            <div class="panel-body">
-                {% bootstrap_form form layout="horizontal" %}
-                <div class="col-md-9 col-md-offset-3 text-muted small">
-                    Ejemplo:<br>
-                    <code>codigo;fila;butaca</code><br>
-                    <code>0001234567;J;1</code><br>
-                    <code>0001234568;J;2</code><br>
-                    El código tiene que ser exactamente lo que lee el escáner en el boleto (número o código de
-                    barras). Las butacas cargadas quedan reservadas para boletería. Los boletos de venta entran en
-                    la puerta recién cuando se venden (arriba, "Vender boletos de papel"); las cortesías, desde que
-                    se cargan. Si algo está mal, no se carga ningún boleto y te mostramos qué corregir.<br>
-                    Las ventas y las cortesías se cargan en archivos separados: un archivo para los boletos que
-                    se venden y otro para los de regalo.
-                </div>
-            </div>
-            <div class="panel-footer text-right">
-                <button type="submit" class="btn btn-primary"><span class="fa fa-upload"></span> Cargar boletos</button>
-            </div>
-        </form>
     {% else %}
         <div class="alert alert-info">
-            {% if series %}Esta fecha{% else %}Este evento{% endif %} no tiene butacas numeradas: los boletos se
-            generan por cantidad de cada producto. Para reservar butacas o cargar boletos de la imprenta con fila y
-            butaca, asignale una sala en <a href="{{ plan_url }}">Plan de butacas</a>.
+            {% if series %}Esta fecha{% else %}Este evento{% endif %} no tiene butacas numeradas: los boletos van
+            por producto (sin fila ni butaca). Para reservar butacas o cargar boletos con fila y butaca, asignale
+            una sala en <a href="{{ plan_url }}">Plan de butacas</a>.
         </div>
     {% endif %}
+
+    <form method="post" enctype="multipart/form-data" class="panel panel-default">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="import">
+        {% if subevent %}<input type="hidden" name="fecha" value="{{ subevent.pk }}">{% endif %}
+        <div class="panel-heading"><h3 class="panel-title">{% if has_plan %}2{% else %}1{% endif %}. Cargar boletos impresos (los códigos los pone la imprenta o el productor)</h3></div>
+        <div class="panel-body">
+            {% bootstrap_form form layout="horizontal" %}
+            <div class="col-md-9 col-md-offset-3 text-muted small">
+                {% if has_plan %}
+                    Numerados: código, fila y butaca (y la columna <code>sector</code> si la fila y la butaca se
+                    repiten en otro sector).<br>
+                    <code>codigo;fila;butaca</code><br>
+                    <code>k7Qm2xP9aT4w;J;1</code><br>
+                    <code>Rb3Nf8Zq1Lc6;J;2</code><br>
+                {% endif %}
+                {% if unnumbered %}
+                    Sin numerar: código y producto ({% for i in unnumbered %}{{ i.name }}{% if not forloop.last %}, {% endif %}{% endfor %}).
+                    {% if has_plan %}Pueden ir en el mismo archivo que los numerados.{% endif %}<br>
+                    <code>codigo;producto</code><br>
+                    <code>Hd5Wy2Kp9Sx3;{{ unnumbered.0.name }}</code><br>
+                {% endif %}
+                El código tiene que ser exactamente lo que lee el escáner en el boleto: hasta 32 letras o números,
+                al azar y sin repetir (ver la guía para imprentas y productores).
+                {% if has_plan %}Las butacas cargadas quedan reservadas para boletería.{% endif %}
+                {% if unnumbered %}Los sin numerar ocupan su lugar en el cupo del producto: dejan de venderse online.{% endif %}
+                Los boletos de venta entran en la puerta recién cuando se venden (arriba, "Vender boletos de papel");
+                las cortesías, desde que se cargan. Si algo está mal, no se carga ningún boleto y te mostramos qué
+                corregir.<br>
+                Las ventas y las cortesías se cargan en archivos separados: un archivo para los boletos que
+                se venden y otro para los de regalo.
+            </div>
+        </div>
+        <div class="panel-footer text-right">
+            <button type="submit" class="btn btn-primary"><span class="fa fa-upload"></span> Cargar boletos</button>
+        </div>
+    </form>
 
     <form method="post" class="panel panel-default">
         {% csrf_token %}
         <input type="hidden" name="action" value="generate">
         {% if subevent %}<input type="hidden" name="fecha" value="{{ subevent.pk }}">{% endif %}
-        <div class="panel-heading"><h3 class="panel-title">{% if has_plan %}3{% else %}1{% endif %}. Generar boletos para la imprenta (los números los pone AndinaTickets)</h3></div>
+        <div class="panel-heading"><h3 class="panel-title">{% if has_plan %}3{% else %}2{% endif %}. Generar boletos para la imprenta (los números los pone AndinaTickets)</h3></div>
         <div class="panel-body">
             <p class="text-muted">
                 AndinaTickets crea un código único por boleto y arma un paquete para la imprenta: las entradas en PDF

@@ -138,8 +138,10 @@ class SellForm(forms.Form):
 
 class PickForm(forms.Form):
     """
-    Qué entregar: butacas elegidas en el plano (``seats``, guids separados por coma) o, en un
-    evento sin numerar, un producto y una cantidad. ``numbered`` lo decide la vista.
+    Qué entregar: butacas elegidas en el plano (``seats``, guids separados por coma) o un producto
+    sin numerar y una cantidad. ``numbered`` (el evento tiene plano) lo decide la vista; ``items``
+    son los productos sin numerar. Con plano y productos sin numerar (por ejemplo, Platea numerada y
+    Gallinero sin butaca) se elige una de las dos cosas.
     """
     seats = forms.CharField(required=False, widget=forms.HiddenInput)
     item = forms.ModelChoiceField(label='Producto', queryset=None, required=False)
@@ -148,17 +150,28 @@ class PickForm(forms.Form):
     def __init__(self, *args, numbered=True, items=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.numbered = numbered
+        self.mixed = numbered and items is not None and items.exists()
         self.fields['item'].queryset = items
-        if numbered:
+        if self.mixed:
+            self.fields['item'].label = 'Producto sin numerar'
+            self.fields['item'].empty_label = '— Ninguno: elijo butacas en el plano —'
+            self.fields['item'].help_text = 'Para los productos sin butaca. Si elegís uno, no se usa el plano.'
+        elif numbered:
             del self.fields['item']
             del self.fields['quantity']
 
     def clean(self):
         d = super().clean()
-        if self.numbered:
-            d['guids'] = [g for g in (d.get('seats') or '').split(',') if g]
+        d['guids'] = [g for g in (d.get('seats') or '').split(',') if g] if self.numbered else []
+        if self.mixed and d.get('item'):
+            d['guids'] = []
+            if not d.get('quantity'):
+                self.add_error('quantity', 'Indicá cuántas.')
+        elif self.numbered:
             if not d['guids']:
-                raise forms.ValidationError('Elegí al menos una butaca en el plano.')
+                raise forms.ValidationError(
+                    'Elegí butacas en el plano o un producto sin numerar y la cantidad.' if self.mixed
+                    else 'Elegí al menos una butaca en el plano.')
         else:
             if not d.get('item'):
                 self.add_error('item', 'Elegí un producto.')

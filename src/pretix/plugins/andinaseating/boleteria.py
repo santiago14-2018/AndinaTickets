@@ -23,6 +23,7 @@ Boletería: butacas reservadas para venta presencial y boletos impresos por una 
 import csv
 import io
 import json
+import re
 import secrets
 from datetime import timedelta
 from decimal import Decimal
@@ -45,6 +46,10 @@ COURTESY_CHANNEL = 'api.cortesias'  # cortesías por email (cortesias.py)
 KIND_SALE = 'venta'
 KIND_COURTESY = 'cortesia'
 MAX_GENERATE = 500  # boletos por generación
+# Códigos de boletos que trae la imprenta o el productor: los guarda pretix (hasta 32 caracteres) y se
+# escriben a mano en la puerta si el QR no se lee. Ver la guía para imprentas y productores (privado/).
+MAX_CODIGO = 32
+CODIGO_VALIDO = re.compile(r'^[A-Za-z0-9]{1,%d}$' % MAX_CODIGO)
 GENERATED_COMMENT = 'Boletos generados para la imprenta'
 
 CSV_COLUMNS = {
@@ -52,6 +57,7 @@ CSV_COLUMNS = {
     'row': ('fila', 'row'),
     'seat': ('butaca', 'asiento', 'numero', 'número', 'seat'),
     'sector': ('sector', 'zona', 'zone'),
+    'product': ('producto', 'product'),  # boletos sin numerar: código y producto, sin fila ni butaca
 }
 
 
@@ -105,9 +111,15 @@ def parse_tickets_csv(content: bytes):
     col = {}
     for key, names in CSV_COLUMNS.items():
         col[key] = next((i for i, h in enumerate(header) if h in names), None)
-    missing = [n for n, k in (('codigo', 'code'), ('fila', 'row'), ('butaca', 'seat')) if col[k] is None]
+    # Numerados: código, fila y butaca. Sin numerar: código y producto. Un mismo archivo puede tener
+    # los dos (en cada renglón, fila y butaca o el producto).
+    needed = [('codigo', 'code')]
+    if col['product'] is None:
+        needed += [('fila', 'row'), ('butaca', 'seat')]
+    missing = [n for n, k in needed if col[k] is None]
     if missing:
-        raise ValidationError('Faltan columnas en el CSV: {}.'.format(', '.join(missing)))
+        raise ValidationError('Faltan columnas en el CSV: {} (o "producto", para los boletos sin numerar).'.format(
+            ', '.join(missing)))
 
     out = []
     for n, line in enumerate(lines[1:], start=2):
@@ -115,14 +127,19 @@ def parse_tickets_csv(content: bytes):
             i = col[key]
             return line[i].strip() if i is not None and i < len(line) else ''
         out.append({'line': n, 'code': cell('code'), 'row': cell('row'), 'seat': cell('seat'),
-                    'sector': cell('sector')})
+                    'sector': cell('sector'), 'product': cell('product')})
     return out
 
 
 def resolve_tickets(event, subevent, rows, channel):
-    """Devuelve ([(código, Seat)], [errores]). No modifica nada."""
+    """
+    Devuelve ([(código, Seat o None, Item)], [errores]). No modifica nada. Los renglones con
+    producto son boletos sin numerar (sin butaca); los demás, butacas del plano.
+    """
     ev = subevent or event
     seats = list(ev.seats.select_related('product'))
+    unnumbered = {str(i.name).strip().lower(): i for i in unnumbered_items(event)}
+    per_item = {}
     index = {}
     for s in seats:
         index.setdefault((s.row_name.lower(), s.seat_number.lower()), []).append(s)
@@ -134,14 +151,32 @@ def resolve_tickets(event, subevent, rows, channel):
     resolved, errors, codes, used = [], [], set(), set()
     for r in rows:
         where = 'Línea {}'.format(r['line'])
-        if not r['code'] or not r['row'] or not r['seat']:
-            errors.append('{}: faltan código, fila o butaca.'.format(where))
+        if not r['code']:
+            errors.append('{}: falta el código.'.format(where))
+            continue
+        if not CODIGO_VALIDO.match(r['code']):
+            errors.append('{}: el código {} no sirve: tiene que tener hasta {} letras o números, sin espacios ni '
+                          'símbolos.'.format(where, r['code'], MAX_CODIGO))
             continue
         if r['code'] in codes:
             errors.append('{}: el código {} está repetido en el archivo.'.format(where, r['code']))
             continue
         if r['code'] in existing:
             errors.append('{}: el código {} ya existe en otra entrada.'.format(where, r['code']))
+            continue
+        if r.get('product'):
+            item = unnumbered.get(r['product'].strip().lower())
+            if not item:
+                errors.append('{}: no hay un producto sin numerar "{}" en este evento{}.'.format(
+                    where, r['product'], ' (los que hay: {})'.format(', '.join(str(i.name) for i in unnumbered.values()))
+                    if unnumbered else ''))
+                continue
+            codes.add(r['code'])
+            per_item[item] = per_item.get(item, 0) + 1
+            resolved.append((r['code'], None, item))
+            continue
+        if not r['row'] or not r['seat']:
+            errors.append('{}: faltan la fila y la butaca (o el producto, si el boleto no es numerado).'.format(where))
             continue
         matches = index.get((r['row'].lower(), r['seat'].lower()), [])
         if r['sector']:
@@ -166,7 +201,13 @@ def resolve_tickets(event, subevent, rows, channel):
             continue
         codes.add(r['code'])
         used.add(seat.pk)
-        resolved.append((r['code'], seat))
+        resolved.append((r['code'], seat, seat.product))
+    # Los sin numerar no tienen butaca que los aparte: hace falta lugar en el cupo de cada producto
+    # (el importador de pretix no lo mira).
+    for item, n in per_item.items():
+        error = check_quota(item, subevent, n)
+        if error:
+            errors.append(error)
     return resolved, errors
 
 
@@ -242,17 +283,18 @@ def run_import(event, subevent, user, channel, rows, comment, courtesy=False, em
 
 def import_tickets(event, subevent, resolved, user, filename, kind=KIND_SALE):
     """
-    Carga los boletos impresos por la imprenta (código = código del boleto) en el canal
-    Boletería y deja esas butacas reservadas para boletería. Los de venta quedan sin vender
-    hasta que se venden en el mostrador; las cortesías, válidas y a precio 0.
+    Carga los boletos impresos por la imprenta o el productor (código = código del boleto) en el
+    canal Boletería. Los numerados dejan su butaca reservada para boletería; los sin numerar ocupan
+    su lugar en el cupo del producto. Los de venta quedan sin vender hasta que se venden en el
+    mostrador; las cortesías, válidas y a precio 0.
     """
     courtesy = kind == KIND_COURTESY
     channel = enable_for_event(event)
-    rows = [{'item': seat.product_id, 'seat': seat.seat_guid, 'secret': code} for code, seat in resolved]
+    rows = [{'item': item.pk, 'seat': seat.seat_guid if seat else '', 'secret': code} for code, seat, item in resolved]
     run_import(event, subevent, user, channel, rows,
                '{} ({})'.format('Cortesías impresas' if courtesy else 'Boletos impresos', filename),
                courtesy=courtesy, pending=not courtesy)
-    (subevent or event).seats.filter(pk__in=[s.pk for _, s in resolved]).update(blocked=True)
+    (subevent or event).seats.filter(pk__in=[s.pk for _, s, _ in resolved if s]).update(blocked=True)
     return len(resolved)
 
 
@@ -282,8 +324,14 @@ def seats_by_guid(target, guids, channel):
 
 
 def unnumbered_items(event):
-    """Productos que se pueden entregar por cantidad (sin butaca)."""
-    return event.items.filter(active=True, admission=True, variations__isnull=True).order_by('position', 'pk')
+    """
+    Productos que se pueden entregar por cantidad (sin butaca). En un evento con plano son los que
+    no están conectados con un sector (por ejemplo "Gallinero", sin numerar, junto a la Platea).
+    """
+    seated = set(event.seat_category_mappings.values_list('product', flat=True))
+    seated |= set(event.seats.filter(product__isnull=False).values_list('product', flat=True).distinct())
+    return (event.items.filter(active=True, admission=True, variations__isnull=True)
+            .exclude(pk__in=seated).order_by('position', 'pk'))
 
 
 def check_quota(item, subevent, quantity):
