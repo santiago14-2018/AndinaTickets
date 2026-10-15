@@ -34,6 +34,12 @@ DEJAR = re.compile(
 )
 
 
+# Errores de la traducción de pretix que se ven en pantalla: {frase en inglés: castellano correcto}.
+CORRECCIONES = {
+    'Clear': 'Limpiar',  # pretix lo traducía "Claro" (casilla para quitar un archivo, botón de limpiar)
+}
+
+
 def cambiar(texto):
     texto = PALABRA.sub(MARCA, texto)
     # La traducción de pretix se come el signo de apertura.
@@ -64,6 +70,8 @@ def main():
             flags=[f for f in e.flags if f != 'fuzzy'],
         )
         nuevo.append(copia)
+    for msgid, msgstr in CORRECCIONES.items():
+        nuevo.append(polib.POEntry(msgid=msgid, msgstr=msgstr))
     os.makedirs(os.path.dirname(DESTINO), exist_ok=True)
     nuevo.save(DESTINO)
     print(len(nuevo), 'frases en', DESTINO)

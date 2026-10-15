@@ -1,0 +1,31 @@
+{% load thumb %}{% load static %}{% comment %}
+    AndinaTickets: reemplaza la de pretix (pretixbase/forms/widgets/thumbnailed_file_input.html).
+    - "Sin imagen" (o "Quitar el archivo"): la casilla de Django para borrar el archivo actual, con un
+      nombre que se entiende (pretix la traducía "Claro"). Se borra al tocar Guardar.
+    - Vista previa en el momento de elegir una imagen nueva, antes de guardar (andina_marca/archivo.js).
+    Sin JavaScript sigue funcionando como la original. Sin estilos sueltos: el panel no los permite.
+{% endcomment %}<div class="andina-archivo" data-andina-archivo>
+{% if widget.is_initial %}
+    <div class="andina-archivo-actual">
+        {{ widget.initial_text }}: <a href="{{ widget.value.url }}">{{ widget.value }}</a>
+        {% if widget.value.is_img %}<br><a href="{{ widget.value.url }}" data-lightbox="{{ widget.name }}"><img src="{{ widget.value.name|thumb:"200x100" }}" alt="" /></a>{% endif %}
+    </div>
+    {% if not widget.required %}
+        <label class="btn btn-default btn-sm andina-archivo-quitar" for="{{ widget.checkbox_id }}">
+            <input type="checkbox" name="{{ widget.checkbox_name }}" id="{{ widget.checkbox_id }}">
+            {% if widget.value.is_img %}Sin imagen{% else %}Quitar el archivo{% endif %}
+        </label>
+        <span class="help-block andina-archivo-aviso hidden">
+            {% if widget.value.is_img %}La imagen{% else %}El archivo{% endif %} se quita al tocar Guardar.
+        </span>
+    {% endif %}
+    <div>{{ widget.input_text }}:</div>
+{% endif %}
+<input type="{{ widget.type }}" name="{{ widget.name }}"{% include "django/forms/widgets/attrs.html" %}>
+{% if widget.cachedfile %}<input type="hidden" name="{{ widget.hidden_name }}" value="{{ widget.cachedfile.id }}">{% endif %}
+<div class="andina-archivo-vista hidden">
+    <span class="help-block">Vista previa (se guarda al tocar Guardar):</span>
+    <img alt="">
+</div>
+</div>
+<script src="{% static "andina_marca/archivo.js" %}"></script>

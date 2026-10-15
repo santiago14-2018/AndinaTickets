@@ -8,7 +8,9 @@ from django.urls import resolve, reverse
 
 from pretix.base.permissions import PermissionGroup, PermissionOption
 from pretix.base.signals import register_organizer_permission_groups
-from pretix.control.signals import nav_organizer, user_dashboard_widgets
+from pretix.control.signals import (
+    nav_global, nav_organizer, user_dashboard_widgets,
+)
 
 
 @receiver(register_organizer_permission_groups, dispatch_uid="andinaproductores_permissions")
@@ -66,3 +68,25 @@ def dashboard(sender, user, **kwargs):
                 'url': reverse('plugins:andinaproductores:mis_ventas', kwargs={'organizer': team.organizer.slug}),
             })
     return widgets[:1]
+
+
+@receiver(nav_global, dispatch_uid="andinaproductores_nav_global")
+def nav_principal(sender, request=None, **kwargs):
+    """
+    "Mis ventas" en el menú de entrada (Tablero, Eventos, Organizadores…) para quien está en un
+    equipo de productor: así no tiene que pasar por Organizadores. Uno por organizador, si fueran
+    varios. Los administradores no lo necesitan: lo tienen dentro del organizador.
+    """
+    if not request or not request.user.is_authenticated:
+        return []
+    url = resolve(request.path_info)
+    activo = url.namespace == 'plugins:andinaproductores' and url.url_name != 'admin'
+    equipos = [t for t in request.user.teams.select_related('organizer')
+               if t.has_organizer_permission('andina.productor:read') and not t.all_organizer_permissions]
+    organizadores = list({t.organizer.pk: t.organizer for t in equipos}.values())
+    return [{
+        'label': 'Mis ventas' if len(organizadores) == 1 else 'Mis ventas ({})'.format(o.name),
+        'url': reverse('plugins:andinaproductores:mis_ventas', kwargs={'organizer': o.slug}),
+        'active': activo and request.resolver_match.kwargs.get('organizer') == o.slug,
+        'icon': 'line-chart',
+    } for o in organizadores]

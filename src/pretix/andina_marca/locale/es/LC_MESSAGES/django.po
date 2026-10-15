@@ -296,3 +296,6 @@ msgid ""
 msgstr ""
 "Esta característica es útil si sólo se usa el componente de pago de "
 "AndinaTickets pero se usa una interfaz de pago propia para otros pasos."
+
+msgid "Clear"
+msgstr "Limpiar"

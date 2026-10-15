@@ -22,6 +22,18 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 
 ---
 
+## 2026-10-15
+
+- [PROPIO] `andinaproductores`: el recuadro "Mis ventas" del Tablero del productor, más grande y con
+  el botón "Ver mis ventas" (antes los textos eran chicos y costaba verlo).
+- [PROPIO] `andinaproductores`: "Mis ventas" en el menú de entrada (Tablero, Eventos, Organizadores…)
+  para quien está en un equipo de productor: ya no tiene que pasar por Organizadores.
+- [PRETIX] `andina_marca`: el campo para subir imágenes y archivos del panel (por ejemplo, las imágenes
+  del evento) tiene el botón "Sin imagen" (o "Quitar el archivo"), que la quita al guardar, y muestra
+  la vista previa apenas se elige la imagen, antes de guardar (`archivo.js`). Reemplaza la plantilla
+  `pretixbase/forms/widgets/thumbnailed_file_input.html`. Además, "Clear" se traducía "Claro": ahora
+  "Limpiar" (`generar_textos.py`, lista de correcciones).
+
 ## 2026-10-14
 
 - [PROPIO] `andinaseating` (boletería y cortesías): los planos muestran solo los sectores habilitados
@@ -38,6 +50,10 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
   productores" v1, para quien imprime sus propios boletos: reglas de los códigos (al azar, hasta 32
   letras o números), cómo va el QR en el boleto, la planilla CSV (numerados y sin numerar) y la prueba
   con muestras antes de imprimir.
+- [PROPIO] Documentación: Manual de usuario v10. Capítulo 10: boletos sin numerar de la imprenta
+  (planilla `codigo;producto`), remite a la guía para imprentas y productores, y el Ejemplo 1 usa
+  códigos al azar. Capítulo 12: Productores está en el organizador, no dentro del evento. Una
+  pregunta frecuente nueva.
 - [PROPIO] Documentación (en `privado/documentacion/`, no va a Git): Manual de usuario v9. Sección nueva
   "Cargo por servicio y comisión" (capítulo 12: qué es cada uno, dónde se cargan, el carrito y la
   boletería), Figura 40 (Productores) nueva, capítulo 10 al día (sectores habilitados, "Producto sin
