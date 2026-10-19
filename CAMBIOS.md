@@ -30,7 +30,11 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
     panel ya carga): se escribe parte del nombre y quedan las opciones que lo contienen. "Otros…" va
     al final;
   - botón "Volver al fondo original": después de subir otro PDF o de crear un fondo vacío, vuelve al
-    fondo de fábrica (recuadros y tijera). Lo sube como "Subir PDF como fondo" y se guarda con Guardar.
+    fondo de fábrica (recuadros y tijera). Lo sube como "Subir PDF como fondo" y se guarda con Guardar;
+  - los textos nuevos ("Campo de texto") copian el estilo del texto elegido (letra, tamaño, color,
+    negrita, alineación, ancho) y aparecen justo debajo; sin texto elegido, salen con la letra de la
+    marca (Bricolage Grotesque) y no con "Open Sans", que pretix trae fija (también en Deshacer);
+  - los botones de duplicar y eliminar muestran su nombre ("Duplicar", "Eliminar"), no solo el ícono.
 - [PROPIO] `andina_marca/generar_textos.py`: arma también `djangojs.po` (textos de las pantallas con
   JavaScript) y compila los `.mo`. El recuadro del logo en el editor decía "Proveído por pretix":
   ahora "Provisto por AndinaTickets".
