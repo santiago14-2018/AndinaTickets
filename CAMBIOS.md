@@ -22,6 +22,19 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 
 ---
 
+## 2026-10-19
+
+- [PROPIO] `andina_marca`: agregados del editor de entradas en PDF (`static/andina_marca/editor_entradas.js`,
+  señal `html_page_start` en `signals.py`; se cargan solo en el editor):
+  - la lista "Contenido" de un campo de texto, en orden alfabético y con buscador (select2, que el
+    panel ya carga): se escribe parte del nombre y quedan las opciones que lo contienen. "Otros…" va
+    al final;
+  - botón "Volver al fondo original": después de subir otro PDF o de crear un fondo vacío, vuelve al
+    fondo de fábrica (recuadros y tijera). Lo sube como "Subir PDF como fondo" y se guarda con Guardar.
+- [PROPIO] `andina_marca/generar_textos.py`: arma también `djangojs.po` (textos de las pantallas con
+  JavaScript) y compila los `.mo`. El recuadro del logo en el editor decía "Proveído por pretix":
+  ahora "Provisto por AndinaTickets".
+
 ## 2026-10-15
 
 - [PROPIO] `andinaproductores`: el recuadro "Mis ventas" del Tablero del productor, más grande y con

@@ -1,7 +1,9 @@
 """
-AndinaTickets: arma andina_marca/locale/es/LC_MESSAGES/django.po con las frases en castellano
-de pretix que nombran al sistema ("su cuenta de pretix", "Bienvenido a pretix", ...), cambiando
-"pretix" por el nombre de la marca.
+AndinaTickets: arma andina_marca/locale/es/LC_MESSAGES/django.po y djangojs.po con las frases en
+castellano de pretix que nombran al sistema ("su cuenta de pretix", "Bienvenido a pretix", ...),
+cambiando "pretix" por el nombre de la marca, más algunas correcciones de la traducción de pretix.
+djangojs.po son los textos de las pantallas armadas con JavaScript (por ejemplo, el editor de
+entradas en PDF).
 
 Django lee esta carpeta antes que la traducción de pretix, así que solo se reemplazan esas frases
 y la traducción original queda intacta. Se deja "pretix" donde habla del programa en sí (licencia,
@@ -11,7 +13,7 @@ Volver a correr después de actualizar pretix:
 
     docker exec andina-tickets-web-1 python /pretix/src/pretix/andina_marca/generar_textos.py
 
-y reiniciar (o "python manage.py compilemessages") para que se compile el .mo.
+Compila los .mo al terminar; reiniciar el servidor para que los tome.
 """
 import os
 import re
@@ -20,8 +22,8 @@ import polib
 
 MARCA = 'AndinaTickets'
 AQUI = os.path.dirname(os.path.abspath(__file__))
-ORIGEN = os.path.join(AQUI, '..', 'locale', 'es', 'LC_MESSAGES', 'django.po')
-DESTINO = os.path.join(AQUI, 'locale', 'es', 'LC_MESSAGES', 'django.po')
+ORIGEN = os.path.join(AQUI, '..', 'locale', 'es', 'LC_MESSAGES')
+DESTINO = os.path.join(AQUI, 'locale', 'es', 'LC_MESSAGES')
 
 PALABRA = re.compile(r'\b[Pp]retix\b(?![.\-]?[A-Za-z])')
 # Frases que hablan de pretix como programa: se dejan como están.
@@ -33,10 +35,15 @@ DEJAR = re.compile(
     re.IGNORECASE
 )
 
-
-# Errores de la traducción de pretix que se ven en pantalla: {frase en inglés: castellano correcto}.
+# Errores de la traducción de pretix que se ven en pantalla, por archivo: {frase en inglés: castellano}.
 CORRECCIONES = {
-    'Clear': 'Limpiar',  # pretix lo traducía "Claro" (casilla para quitar un archivo, botón de limpiar)
+    'django': {
+        'Clear': 'Limpiar',  # pretix lo traducía "Claro" (casilla para quitar un archivo, botón de limpiar)
+    },
+    'djangojs': {
+        # Título del recuadro del logo en el editor de entradas: era "Proveído por pretix", y el logo es el nuestro.
+        'Powered by pretix': 'Provisto por AndinaTickets',
+    },
 }
 
 
@@ -46,8 +53,8 @@ def cambiar(texto):
     return re.sub(r'^Bienvenido a ', '¡Bienvenido a ', texto)
 
 
-def main():
-    origen = polib.pofile(ORIGEN)
+def armar(dominio):
+    origen = polib.pofile(os.path.join(ORIGEN, dominio + '.po'))
     nuevo = polib.POFile()
     nuevo.metadata = {
         'Project-Id-Version': 'AndinaTickets',
@@ -57,27 +64,30 @@ def main():
         'Content-Transfer-Encoding': '8bit',
         'Plural-Forms': origen.metadata.get('Plural-Forms', 'nplurals=2; plural=n != 1;'),
     }
+    correcciones = CORRECCIONES.get(dominio, {})
     for e in origen:
-        if e.obsolete or 'fuzzy' in e.flags:
+        if e.obsolete or 'fuzzy' in e.flags or e.msgid in correcciones:
             continue
         textos = [e.msgstr] + list(e.msgstr_plural.values())
         if not any(PALABRA.search(t) for t in textos) or any(DEJAR.search(t) for t in textos):
             continue
-        copia = polib.POEntry(
+        nuevo.append(polib.POEntry(
             msgid=e.msgid, msgid_plural=e.msgid_plural, msgctxt=e.msgctxt,
             msgstr=cambiar(e.msgstr),
             msgstr_plural={k: cambiar(v) for k, v in e.msgstr_plural.items()},
             flags=[f for f in e.flags if f != 'fuzzy'],
-        )
-        nuevo.append(copia)
-    for msgid, msgstr in CORRECCIONES.items():
+        ))
+    for msgid, msgstr in correcciones.items():
         nuevo.append(polib.POEntry(msgid=msgid, msgstr=msgstr))
-    os.makedirs(os.path.dirname(DESTINO), exist_ok=True)
-    nuevo.save(DESTINO)
-    print(len(nuevo), 'frases en', DESTINO)
+    os.makedirs(DESTINO, exist_ok=True)
+    po = os.path.join(DESTINO, dominio + '.po')
+    nuevo.save(po)
+    nuevo.save_as_mofile(os.path.join(DESTINO, dominio + '.mo'))
+    print(len(nuevo), 'frases en', po)
     for c in nuevo:
         print(' -', (c.msgstr or c.msgstr_plural.get(0, ''))[:110].replace('\n', ' '))
 
 
 if __name__ == '__main__':
-    main()
+    for d in ('django', 'djangojs'):
+        armar(d)

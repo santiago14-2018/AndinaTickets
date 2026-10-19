@@ -4,7 +4,10 @@
 #
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.templatetags.static import static
+from django.utils.html import format_html
 
+from pretix.control.signals import html_page_start
 from pretix.presale.style import register_fonts
 
 LETRA = 'Bricolage Grotesque'
@@ -35,3 +38,18 @@ def boleto_con_letra_de_la_marca(sender, instance, created, **kwargs):
     if created and instance.layout and '"fontfamily": "Open Sans"' in instance.layout:
         instance.layout = _con_letra_de_la_marca(instance.layout)
         instance.save(update_fields=['layout'])
+
+
+@receiver(html_page_start, dispatch_uid="andina_marca_editor_entradas")
+def editor_entradas(sender, **kwargs):
+    """
+    Agregados del editor de PDF (static/andina_marca/editor_entradas.js): la lista "Contenido" ordenada
+    y con buscador y, en el de las entradas, el botón "Volver al fondo original". Solo en esa página.
+    El fondo original es el que pretix usa cuando el diseño no tiene uno propio (ticketoutputpdf).
+    """
+    ruta = sender.path.rstrip('/')
+    if not ruta.endswith('/editor'):
+        return ''
+    fondo = static('pretixpresale/pdf/ticket_default_a4.pdf') if '/pdfoutput/' in ruta else ''
+    return format_html('<script src="{}" data-fondo-original="{}"></script>',
+                       static('andina_marca/editor_entradas.js'), fondo)
