@@ -17,7 +17,7 @@ Flujo:
 """
 import json
 import logging
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.conf import settings as django_settings
 from django.db import transaction
@@ -58,12 +58,83 @@ def external_reference(payment):
     return '{}/{}/{}'.format(order.event.organizer.slug, order.event.slug, payment.full_id)
 
 
+def _dinero(valor):
+    """Monto de la API de Mercado Pago (número o texto) como texto con dos decimales, o None."""
+    if valor is None or valor == '':
+        return None
+    try:
+        return str(Decimal(str(valor)).quantize(Decimal('0.01')))
+    except (InvalidOperation, ValueError):
+        return None
+
+
+def costos_de_cobro(data):
+    """
+    Lo que cobró Mercado Pago por este pago, en el formato común de AndinaTickets para todas las
+    pasarelas (lo lee el programa privado de Liquidaciones por la API de pretix, en los detalles del
+    pago, clave "costos"). Montos en texto con dos decimales; None si la pasarela no lo informa:
+
+    - pasarela: "mercadopago"
+    - bruto: lo que pagó el comprador
+    - comision: comisiones de la pasarela a cargo nuestro (fee_details con fee_payer "collector")
+    - impuestos: impuestos y retenciones que descontó la pasarela (charges_details de tipo "tax")
+    - neto: lo que se acredita en la cuenta (transaction_details.net_received_amount)
+    - costo_total: bruto − neto (todo lo que se quedó la pasarela); si no hay neto, comision + impuestos
+    - acreditacion: cuándo se libera la plata (money_release_date)
+    - detalle: el desglose tal como lo da Mercado Pago (nombre, tipo y monto de cada cargo)
+
+    Las otras pasarelas que se agreguen deben guardar lo mismo, para que el informe las sume igual.
+    """
+    if not data.get('id'):
+        return None
+    comisiones = [f for f in (data.get('fee_details') or []) if f.get('fee_payer', 'collector') == 'collector']
+    cargos = data.get('charges_details') or []
+    impuestos = [c for c in cargos if c.get('type') == 'tax'
+                 and (c.get('accounts') or {}).get('from', 'collector') == 'collector']
+
+    def suma(montos):
+        montos = [Decimal(m) for m in montos if m is not None]
+        return str(sum(montos, Decimal('0.00')).quantize(Decimal('0.01'))) if montos else None
+
+    def monto_cargo(c):
+        a = c.get('amounts') or {}
+        original, devuelto = _dinero(a.get('original')), _dinero(a.get('refunded')) or '0.00'
+        return str(Decimal(original) - Decimal(devuelto)) if original is not None else None
+
+    bruto = _dinero(data.get('transaction_amount'))
+    neto = _dinero((data.get('transaction_details') or {}).get('net_received_amount'))
+    comision = suma(_dinero(f.get('amount')) for f in comisiones)
+    impuesto = suma(monto_cargo(c) for c in impuestos) if 'charges_details' in data else None
+    if bruto is not None and neto is not None:
+        costo_total = str(Decimal(bruto) - Decimal(neto))
+    else:
+        costo_total = suma([comision, impuesto])
+    return {
+        'pasarela': 'mercadopago',
+        'bruto': bruto,
+        'comision': comision,
+        'impuestos': impuesto,
+        'neto': neto,
+        'costo_total': costo_total,
+        'acreditacion': data.get('money_release_date'),
+        'detalle': [{'nombre': f.get('type'), 'tipo': 'comision', 'monto': _dinero(f.get('amount'))}
+                    for f in comisiones]
+        + [{'nombre': c.get('name'), 'tipo': c.get('type'), 'monto': monto_cargo(c)}
+           for c in cargos if (c.get('accounts') or {}).get('from', 'collector') == 'collector'],
+    }
+
+
 def payment_summary(data):
-    """Lo que guardamos del pago de Mercado Pago (sin datos de tarjeta)."""
+    """Lo que guardamos del pago de Mercado Pago (sin datos de tarjeta), con lo que nos cobró."""
     keys = ('id', 'status', 'status_detail', 'external_reference', 'transaction_amount', 'currency_id',
             'payment_method_id', 'payment_type_id', 'installments', 'date_created', 'date_approved',
-            'live_mode', 'transaction_amount_refunded')
-    return {k: data.get(k) for k in keys if k in data}
+            'live_mode', 'transaction_amount_refunded', 'money_release_date')
+    resumen = {k: data.get(k) for k in keys if k in data}
+    if 'costos' in data:  # ya es un resumen guardado (por ejemplo, el de los detalles para la API)
+        resumen['costos'] = data['costos']
+    elif data.get('id'):
+        resumen['costos'] = costos_de_cobro(data)
+    return resumen
 
 
 def process_mp_payment(payment: OrderPayment, data: dict, source: str):
@@ -284,7 +355,8 @@ class MercadoPago(BasePaymentProvider):
 
     def shred_payment_info(self, obj):
         info = obj.info_data
-        obj.info = json.dumps({k: info.get(k) for k in ('id', 'status', 'transaction_amount', 'currency_id')
+        # Los costos del cobro no son datos personales y hacen falta para la contabilidad: se conservan.
+        obj.info = json.dumps({k: info.get(k) for k in ('id', 'status', 'transaction_amount', 'currency_id', 'costos')
                                if k in info})
         obj.save(update_fields=['info'])
 

@@ -33,7 +33,7 @@ from pretix.base.payment import PaymentException
 from pretix.base.settings import GlobalSettingsObject
 from pretix.plugins.andinamercadopago.mp_api import verify_webhook_signature
 from pretix.plugins.andinamercadopago.payment import (
-    MercadoPago, external_reference, process_mp_payment,
+    MercadoPago, costos_de_cobro, external_reference, process_mp_payment,
 )
 
 API = 'https://api.mercadopago.com'
@@ -461,3 +461,53 @@ def test_history_texts_are_readable(env):
     assert '#5 por 100.0 ARS' in texts['pretix.plugins.andinamercadopago.amount_mismatch']
     assert 'cupo agotado' in texts['pretix.plugins.andinamercadopago.confirm_failed']
     assert not any(t.startswith('pretix.plugins') for t in texts.values())
+
+
+# ---------- Costos del cobro (para la rendición de AndinaTickets) ----------
+
+COBRO = {
+    'fee_details': [
+        {'type': 'mercadopago_fee', 'amount': 450.2, 'fee_payer': 'collector'},
+        {'type': 'financing_fee', 'amount': 900.0, 'fee_payer': 'payer'},  # lo paga el comprador: no es costo nuestro
+    ],
+    'charges_details': [
+        {'name': 'mercadopago_fee', 'type': 'fee', 'accounts': {'from': 'collector', 'to': 'mp'},
+         'amounts': {'original': 450.2, 'refunded': 0}},
+        {'name': 'iibb_retencion', 'type': 'tax', 'accounts': {'from': 'collector', 'to': 'mp'},
+         'amounts': {'original': 120, 'refunded': 0}},
+    ],
+    'transaction_details': {'net_received_amount': 59429.8, 'total_paid_amount': 60900.0},
+    'money_release_date': '2026-10-29T10:00:00.000-04:00',
+}
+
+
+def test_costos_de_cobro_con_los_datos_de_mercado_pago():
+    c = costos_de_cobro({'id': 1, 'transaction_amount': 60000.0, **COBRO})
+    assert c['pasarela'] == 'mercadopago'
+    assert (c['bruto'], c['comision'], c['impuestos'], c['neto'], c['costo_total']) == (
+        '60000.00', '450.20', '120.00', '59429.80', '570.20')
+    assert c['acreditacion'].startswith('2026-10-29')
+    assert {'nombre': 'iibb_retencion', 'tipo': 'tax', 'monto': '120.00'} in c['detalle']
+    assert all(d['nombre'] != 'financing_fee' for d in c['detalle'])
+
+
+def test_costos_sin_neto_suman_comision_e_impuestos():
+    data = {'id': 1, 'transaction_amount': 1000, 'fee_details': [{'type': 'mercadopago_fee', 'amount': '41'}]}
+    c = costos_de_cobro(data)
+    assert (c['neto'], c['impuestos'], c['costo_total']) == (None, None, '41.00')
+
+
+@pytest.mark.django_db
+@responses.activate
+def test_al_aprobar_se_guardan_los_costos_y_salen_por_la_api(env, client):
+    event, order, payment = env
+    responses.add(responses.GET, API + '/v1/payments/111', json=mp_payment(payment, **COBRO))
+    client.get(return_path(event, payment), {'payment_id': '111', 'status': 'approved'})
+    with scopes_disabled():
+        payment.refresh_from_db()
+        assert payment.info_data['costos']['costo_total'] == '570.20'
+        assert MercadoPago(event).api_payment_details(payment)['costos']['neto'] == '59429.80'
+        # Al borrar los datos personales del evento, los costos se conservan (son contables).
+        MercadoPago(event).shred_payment_info(payment)
+        payment.refresh_from_db()
+        assert payment.info_data['costos']['comision'] == '450.20'

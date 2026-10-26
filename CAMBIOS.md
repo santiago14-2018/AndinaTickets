@@ -24,6 +24,13 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 
 ## 2026-10-19
 
+- [PROPIO] `andinamercadopago`: cada pago guarda lo que cobró Mercado Pago, en un bloque `costos` con el
+  formato común de AndinaTickets para todas las pasarelas: bruto, comisión (a cargo nuestro), impuestos
+  y retenciones, neto acreditado, costo total, fecha de acreditación y el desglose. Sale por la API de
+  pretix (`payments[].details.costos`) para la rendición de cuentas del programa de Liquidaciones, se ve
+  en el pago dentro del pedido ("Costo del cobro", "Neto acreditado") y se conserva al borrar los datos
+  personales (es contable). Antes esos datos de Mercado Pago se descartaban.
+
 - [PROPIO] `andina_marca`: agregados del editor de entradas en PDF (`static/andina_marca/editor_entradas.js`,
   señal `html_page_start` en `signals.py`; se cargan solo en el editor):
   - la lista "Contenido" de un campo de texto, en orden alfabético y con buscador (select2, que el

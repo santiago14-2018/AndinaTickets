@@ -16,6 +16,19 @@
             <dt>Modo</dt>
             <dd>Prueba</dd>
         {% endif %}
+        {% with c=info.costos %}
+            {% if c.costo_total or c.comision or c.neto %}
+                <dt>Costo del cobro</dt>
+                <dd>
+                    ${{ c.costo_total|default:"?" }}
+                    {% if c.comision or c.impuestos %}(comisión ${{ c.comision|default:"0.00" }}{% if c.impuestos %}, impuestos y retenciones ${{ c.impuestos }}{% endif %}){% endif %}
+                </dd>
+                {% if c.neto %}
+                    <dt>Neto acreditado</dt>
+                    <dd>${{ c.neto }}{% if c.acreditacion %} · se libera el {{ c.acreditacion|slice:":10" }}{% endif %}</dd>
+                {% endif %}
+            {% endif %}
+        {% endwith %}
     </dl>
 {% elif info.preference_id %}
     <p>Se inició el pago en Mercado Pago (preferencia {{ info.preference_id }}), pero todavía no hay un pago.</p>
