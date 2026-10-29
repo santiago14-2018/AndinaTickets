@@ -27,6 +27,10 @@ import responses
 from pretix.base.models import User
 from pretix.base.settings import GlobalSettingsObject
 
+# AndinaTickets: la comprobación de actualizaciones está anulada (no se le manda nada a pretix.eu).
+# Lo que se comprueba ahora está en tests/plugins/andinaseating/test_sin_avisos_a_pretix.py.
+pytest.skip("comprobación de actualizaciones anulada en AndinaTickets", allow_module_level=True)
+
 
 @pytest.fixture
 def user():

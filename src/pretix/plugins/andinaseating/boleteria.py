@@ -276,8 +276,10 @@ def run_import(event, subevent, user, channel, rows, comment, courtesy=False, em
     orders = list(Order.objects.filter(event=event, sales_channel=channel, comment=comment).order_by('pk'))
     if pending:
         when = subevent or event
-        Order.objects.filter(pk__in=[o.pk for o in orders]).update(
-            expires=(when.date_to or when.date_from) + timedelta(days=1))
+        expires = (when.date_to or when.date_from) + timedelta(days=1)
+        Order.objects.filter(pk__in=[o.pk for o in orders]).update(expires=expires)
+        for o in orders:
+            o.expires = expires
     return lote, orders
 
 

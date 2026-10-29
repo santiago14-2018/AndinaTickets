@@ -967,7 +967,8 @@ DEFAULTS = {
         )
     },
     'payment_term_mode': {
-        'default': 'days',
+        # AndinaTickets: en minutos, porque Mercado Pago solo acepta pagos al momento (sin efectivo).
+        'default': 'minutes',
         'type': str,
         'form_class': forms.ChoiceField,
         'serializer_class': serializers.ChoiceField,
@@ -1035,7 +1036,7 @@ DEFAULTS = {
         )
     },
     'payment_term_minutes': {
-        'default': '30',
+        'default': '40',  # AndinaTickets: pretix trae 30
         'type': int,
         'form_class': forms.IntegerField,
         'serializer_class': serializers.IntegerField,
@@ -3525,7 +3526,8 @@ Your {organizer} team"""))  # noqa: W291
         'type': dict
     },
     'update_check_ack': {
-        'default': 'False',
+        # AndinaTickets: sin el cartel que pide revisar las comprobaciones de actualización (están anuladas).
+        'default': 'True',
         'type': bool
     },
     'update_check_email': {
@@ -3533,7 +3535,8 @@ Your {organizer} team"""))  # noqa: W291
         'type': str
     },
     'update_check_perform': {
-        'default': 'True',
+        # AndinaTickets: apagado, para no mandarle a pretix.eu la versión y los plugins que usamos.
+        'default': 'False',
         'type': bool
     },
     'update_check_result': {

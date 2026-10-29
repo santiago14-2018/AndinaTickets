@@ -71,6 +71,8 @@ def event():
         date_from=now(),
         plugins='pretix.plugins.banktransfer'
     )
+    # AndinaTickets trae el plazo de pago en minutos; estas pruebas son de pretix, con su valor de fábrica.
+    event.settings.payment_term_mode = 'days'
     with scope(organizer=o):
         yield event
 
@@ -4518,6 +4520,8 @@ class OrderReactivateTest(TestCase):
         with scope(organizer=self.o):
             self.event = Event.objects.create(organizer=self.o, name='Dummy', slug='dummy', date_from=now(),
                                               plugins='tests.testdummy')
+            # AndinaTickets trae el plazo de pago en minutos; esta prueba es de pretix, con su valor de fábrica.
+            self.event.settings.payment_term_mode = 'days'
             self.order = Order.objects.create(
                 code='FOO', event=self.event, email='dummy@dummy.test',
                 status=Order.STATUS_CANCELED, locale='en',

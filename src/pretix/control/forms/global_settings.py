@@ -126,6 +126,7 @@ class GlobalSettingsForm(SettingsForm):
 class UpdateSettingsForm(SettingsForm):
     update_check_perform = forms.BooleanField(
         required=False,
+        disabled=True,  # AndinaTickets: anulado en base/services/update_check.py, no se puede activar
         label=_("Perform update checks"),
         help_text=_("During the update check, pretix will report an anonymous, unique installation ID, "
                     "the current version of pretix and your installed plugins and the number of active and "

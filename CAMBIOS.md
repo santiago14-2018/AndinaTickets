@@ -28,6 +28,21 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
   producción lo hace cron). Sin eso los pedidos pendientes nunca vencían: quien llegaba a Mercado Pago y no pagaba
   dejaba la butaca ocupada para siempre. Al encenderlo vencieron 79 pedidos viejos de prueba (78 de la boletería
   de SaltaSex, cuya función ya pasó). Hay que reconstruir el contenedor (`up -d --build web`).
+- **[PRETIX]** `base/settings.py`, valores de fábrica: el plazo de pago pasa a **40 minutos** (pretix traía 14 días).
+  Mercado Pago solo acepta pagos al momento (sin efectivo ni cajero), así que una butaca abandonada se libera
+  enseguida. Vale para todos los eventos que no tengan otro plazo cargado. La boletería sigue con su propio
+  vencimiento (el día después de la función). En `tests/base/test_orders.py`, las pruebas de pretix sobre
+  vencimientos usan su valor de fábrica (en días).
+- **[PROPIO]** Boletería (`boleteria.py`): al generar boletos sin vender, los pedidos que devuelve la función
+  traían el vencimiento anterior al cambio (en la base estaba bien). Ahora devuelve el vencimiento real.
+- **[PRETIX]** Comprobación de actualizaciones anulada: era lo único que le mandaba datos a pretix.eu (un identificador
+  de la instalación, la versión, los plugins y la cantidad de eventos). `base/services/update_check.py` ya no manda
+  nada, `base/settings.py` la trae apagada y sin el cartel que pide revisarla (`update_check_ack`), y en
+  Administración → Actualizaciones la casilla no se puede activar (`control/forms/global_settings.py`). Las pruebas
+  de pretix sobre esa función quedan salteadas; las nuevas están en
+  `tests/plugins/andinaseating/test_sin_avisos_a_pretix.py`. Revisado el resto del código: no hay otras conexiones
+  con pretix (Sentry no está configurado, y Stripe y PayPal no están activos). Una prueba de 90 segundos con las
+  tareas periódicas corriendo no mostró ninguna conexión hacia afuera.
 
 ## 2026-10-19
 

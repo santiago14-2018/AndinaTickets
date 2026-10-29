@@ -42,6 +42,8 @@ from pretix.helpers.urls import mainreverse_absolute
 
 @receiver(signal=periodic_task)
 def run_update_check(sender, **kwargs):
+    # AndinaTickets: anulado. No se le manda nada a pretix.eu (versión, plugins ni cantidad de eventos).
+    return
     gs = GlobalSettingsObject()
     if not gs.settings.update_check_perform:
         return
@@ -53,6 +55,8 @@ def run_update_check(sender, **kwargs):
 @app.task
 @scopes_disabled()
 def update_check():
+    # AndinaTickets: anulado, aunque alguien active "Realizar comprobaciones de actualización" en el panel.
+    return
     gs = GlobalSettingsObject()
 
     if not gs.settings.update_check_id:
