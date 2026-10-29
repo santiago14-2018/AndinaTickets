@@ -30,6 +30,15 @@ if [ "$1" == "runserver" ]; then
     python3 manage.py compilemessages
     python3 manage.py migrate --noinput
     python3 manage.py collectstatic --noinput
+    # Tareas periódicas de pretix (en producción las corre cron): vencer los pedidos pendientes
+    # sin pagar y liberar sus butacas, mandar recordatorios, limpiar archivos viejos, etc.
+    # Sin esto, un pedido que quedó a medio pagar retiene la butaca para siempre.
+    (
+        while true; do
+            sleep 60
+            python3 manage.py runperiodic > /dev/null 2>&1 || echo "runperiodic falló"
+        done
+    ) &
     exec python3 manage.py runserver 0.0.0.0:8000
 fi
 

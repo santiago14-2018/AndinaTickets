@@ -22,6 +22,13 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 
 ---
 
+## 2026-10-29
+
+- **[PROPIO]** Docker de desarrollo: `dev-entrypoint.sh` corre `runperiodic` cada minuto junto al servidor (en
+  producción lo hace cron). Sin eso los pedidos pendientes nunca vencían: quien llegaba a Mercado Pago y no pagaba
+  dejaba la butaca ocupada para siempre. Al encenderlo vencieron 79 pedidos viejos de prueba (78 de la boletería
+  de SaltaSex, cuya función ya pasó). Hay que reconstruir el contenedor (`up -d --build web`).
+
 ## 2026-10-19
 
 - [PROPIO] `andinamercadopago`: cada pago guarda lo que cobró Mercado Pago, en un bloque `costos` con el
