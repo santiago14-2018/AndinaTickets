@@ -22,6 +22,28 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 
 ---
 
+## 2026-11-11
+
+- **[PROPIO]** Producción detrás de "la puerta" (el Caddy del servidor `samisoft-general` de DigitalOcean, que
+  atiende el https de todos los sistemas; está en el repositorio de SamiSoft Bingos, `servidor/puerta`).
+  `deployment/docker/docker-compose.produccion.yml`, proyecto `andina-tickets-produccion`, sin puertos abiertos:
+  - `web` es la imagen de producción de pretix (modo `all`), en la red `puerta` como `andina`;
+  - `db` (PostgreSQL 17) y `redis`;
+  - `tareas`: `runperiodic` cada 5 minutos;
+  - `copias`: la base y `/data` una vez por día, se guardan las últimas 14 (`deployment/docker/copias.sh`).
+
+  Está en la red interna `andina` con Liquidaciones. Configuración en `.env.produccion`; el ejemplo sin claves
+  es `deployment/docker/produccion.env.ejemplo`. Además: `trust_x_forwarded_for` y `trust_x_forwarded_proto`
+  encendidos (con https, pretix pone sus cookies `Secure` y `__Host-`), moneda ARS por defecto y sin
+  cotizaciones del BCE. `.gitignore` y `.dockerignore` dejan afuera las copias y los `.env`. Dominios:
+  `entradas.andinatickets.com.ar` (pretix) y `andinatickets.com.ar` (cartelera).
+- **[PRETIX]** `deployment/docker/nginx.conf` (el nginx de la imagen de producción):
+  - confía solo en las direcciones internas de Docker (`set_real_ip_from` + `real_ip_recursive`), toma la IP
+    real del visitante contando desde el final de `X-Forwarded-For` y le pasa a pretix solo esa (pretix toma la
+    primera del encabezado: así una IP inventada por el visitante no pasa);
+  - le pasa a pretix el `X-Forwarded-Proto` de la puerta;
+  - manda HSTS cuando la visita llegó por https.
+
 ## 2026-10-29
 
 - **[PROPIO]** Docker de desarrollo: `dev-entrypoint.sh` corre `runperiodic` cada minuto junto al servidor (en

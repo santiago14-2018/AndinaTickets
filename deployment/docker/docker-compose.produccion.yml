@@ -1,0 +1,134 @@
+# AndinaTickets en PRODUCCIÓN (servidor "samisoft-general" de DigitalOcean). Ver INSTALAR.md, "Producción".
+#
+#   docker network create puerta                    (una sola vez por servidor; la crea la puerta)
+#   docker network create andina                    (una sola vez: la comparten pretix y Liquidaciones)
+#   cp produccion.env.ejemplo .env.produccion       (y completarlo; Git lo ignora)
+#   docker compose -f docker-compose.produccion.yml up -d --build
+#
+# Va detrás de "la puerta" (un Caddy que atiende los puertos 80 y 443 y el https de todos los sistemas del
+# servidor, en el repositorio de SamiSoft Bingos, servidor/puerta). Este proyecto NO abre puertos: la puerta le
+# pasa las visitas de entradas.andinatickets.com.ar al contenedor "web" por la red "puerta", con el nombre "andina".
+#
+# Tiene otro nombre de proyecto que el de desarrollo (andina-tickets) a propósito: si se corre en la PC, arma su
+# propia base y no toca la de desarrollo.
+# Nunca "docker compose down -v": borra la base y los archivos subidos.
+name: andina-tickets-produccion
+
+x-pretix: &pretix
+  build:
+    context: ../..
+    dockerfile: Dockerfile
+  image: andina-tickets:produccion
+  env_file: ${ARCHIVO_ENV:-.env.produccion}
+  environment: &pretix-env
+    # Base, caché, sesiones y cola de tareas (los nombres son los de los contenedores de abajo).
+    PRETIX_DATABASE_BACKEND: postgresql
+    PRETIX_DATABASE_HOST: db
+    PRETIX_DATABASE_PORT: "5432"
+    PRETIX_REDIS_LOCATION: redis://redis:6379/0
+    PRETIX_REDIS_SESSIONS: "true"
+    PRETIX_CELERY_BROKER: redis://redis:6379/1
+    PRETIX_CELERY_BACKEND: redis://redis:6379/2
+    PRETIX_DJANGO_DEBUG: "false"
+    PRETIX_LOCALE_DEFAULT: es
+    PRETIX_LOCALE_TIMEZONE: America/Argentina/Buenos_Aires
+    PRETIX_PRETIX_CURRENCY: ARS          # moneda de los eventos nuevos (pretix trae EUR)
+    # Detrás de la puerta: creerle la IP real y el "https" que manda (el nginx de la imagen ya dejó solo la IP
+    # real en X-Forwarded-For; ver deployment/docker/nginx.conf). Con https, pretix pone las cookies "Secure".
+    PRETIX_PRETIX_TRUST_X_FORWARDED_FOR: "true"
+    PRETIX_PRETIX_TRUST_X_FORWARDED_PROTO: "true"
+    # Lo que se decidió para producción (ver CAMBIOS.md): sin cotizaciones de bancos europeos (no se usan con
+    # pesos).
+    PRETIX_PRETIX_ECB_RATES: "false"
+  volumes:
+    - datos:/data
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgres:17-alpine
+    # El nombre, el usuario y la clave de la base (POSTGRES_*) están en .env.produccion.
+    env_file: ${ARCHIVO_ENV:-.env.produccion}
+    volumes:
+      - base:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    # Sin "ports": la base no se ve desde afuera del servidor.
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # pretix entero (imagen de producción de pretix, modo "all"): nginx en el puerto 80 (sin https: el https lo
+  # pone la puerta), gunicorn y el trabajador de tareas (celery). Al arrancar, aplica las migraciones.
+  web:
+    <<: *pretix
+    command: ["all"]
+    networks:
+      default:
+      # La red de la puerta: ahí este contenedor se llama "andina".
+      puerta:
+        aliases:
+          - andina
+      # La red que comparte con Liquidaciones (el recuadro "Liquidación" de "Mis ventas" le pregunta ahí).
+      andina:
+
+  # Las tareas periódicas de pretix (runperiodic) cada 5 minutos: vencer los pedidos sin pagar (y liberar sus
+  # butacas), mandar los correos programados, limpiar archivos viejos, etc. Sin esto, un pedido abandonado en
+  # Mercado Pago nunca vence.
+  # Espera 5 minutos antes de cada vuelta (también la primera): al arrancar, "web" todavía está aplicando las
+  # migraciones.
+  tareas:
+    <<: *pretix
+    entrypoint: ["sh", "-c", "while true; do sleep 300; /usr/local/bin/pretix cron || echo 'tareas: runperiodic falló' >&2; done"]
+    environment:
+      <<: *pretix-env
+      AUTOMIGRATE: skip
+    depends_on:
+      - web
+
+  # Copias diarias de la base y de los archivos subidos (las últimas COPIAS_DIAS), en la carpeta "copias" del
+  # servidor. Hay que bajarlas también a otro lado (ver INSTALAR.md).
+  copias:
+    image: postgres:17-alpine
+    env_file: ${ARCHIVO_ENV:-.env.produccion}
+    entrypoint: ["sh", "/copias.sh"]
+    volumes:
+      - ./copias.sh:/copias.sh:ro
+      - datos:/data:ro
+      - ./copias:/copias        # en el servidor: deployment/docker/copias (Git la ignora)
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  base:
+  datos:
+  redis:
+
+networks:
+  # La red de la puerta (repositorio de SamiSoft Bingos, servidor/puerta): la comparten todos los sistemas.
+  puerta:
+    external: true
+    name: puerta
+  # Red interna de AndinaTickets con Liquidaciones (programa privado aparte).
+  andina:
+    external: true
+    name: andina

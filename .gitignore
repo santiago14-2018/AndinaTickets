@@ -34,6 +34,8 @@ node_modules/
 !/privado/LEEME.md
 .env
 .env.*
+# Copias diarias de producción (base y archivos), en el servidor
+/deployment/docker/copias/
 *.sql
 *.sql.gz
 *.dump

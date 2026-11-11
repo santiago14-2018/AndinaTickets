@@ -11,3 +11,7 @@ src/dist/
 # AndinaTickets: lo privado (copias de la base, documentos) no se manda al armar la imagen
 privado/
 
+# AndinaTickets: en el servidor, las copias de producción y las claves no se mandan al armar la imagen
+deployment/docker/copias/
+**/.env
+**/.env.*

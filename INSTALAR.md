@@ -185,3 +185,91 @@ docker compose -f deployment/docker/docker-compose.dev.yml stop
 ```
 
 Los datos quedan guardados ahí, por las dudas.
+
+## 12. Producción (servidor `samisoft-general`)
+
+Decidido el 10/11/2026: DigitalOcean, en Amsterdam. AndinaTickets corre en el servidor
+`samisoft-general` (Ubuntu 24.04, 4 GB), junto con SamiSoft Bingos. La puesta en marcha del
+servidor y "la puerta" (el Caddy que atiende los puertos 80 y 443 y el https de todos los
+sistemas) están en el repositorio de SamiSoft Bingos: `docs/SERVIDOR.md` y `servidor/puerta/`.
+
+### Qué va en cada lugar
+
+| Dominio | Programa | Repositorio | Nombre en la red `puerta` |
+|---|---|---|---|
+| `entradas.andinatickets.com.ar` | AndinaTickets (pretix): tienda, panel, API, AndinaScan | este | `andina` |
+| `andinatickets.com.ar` (y `www`, que redirige) | La cartelera | AndinaTickets-Cartelera (privado) | `andina-cartelera` |
+| — (túnel SSH) | Liquidaciones | AndinaTickets-Liquidaciones (privado) | — (red interna `andina`) |
+
+Ninguno abre puertos al exterior. Liquidaciones abre el 4340 solo en `127.0.0.1` del servidor, para
+el túnel.
+
+### La primera vez
+
+1. En el servidor, con la puerta ya andando (`docker network create puerta` lo hizo la puerta):
+   ```bash
+   docker network create andina
+   ```
+2. Bajar los tres repositorios (los privados, con una llave de GitHub del servidor).
+3. Armar cada `.env.produccion` **en la PC**, desde su ejemplo, y copiarlo al servidor con `scp`. En
+   la PC, "Respaldar todo" los guarda en el candado. Los ejemplos son:
+   - `deployment/docker/produccion.env.ejemplo` en este repositorio;
+   - `.env.example` en la cartelera, con `PRETIX_API_URL=https://entradas.andinatickets.com.ar/api/v1`,
+     `CARTELERA_URL=https://andinatickets.com.ar`, `INDEXAR=si` y `MOSTRAR_NO_PUBLICADOS=no`;
+   - `.env.ejemplo` en Liquidaciones, con `DEBUG=no`, `PRETIX_API_URL=https://entradas.andinatickets.com.ar/api/v1`
+     y `PRETIX_PANEL_URL=https://entradas.andinatickets.com.ar`.
+
+   Los tokens de la cartelera y de Liquidaciones se crean de nuevo en el panel de producción (equipos de
+   solo lectura). La clave de Liquidaciones es la misma en `ANDINA_LIQUIDACIONES_CLAVE` y `CLAVE_PORTAL`.
+4. Levantar los tres:
+   ```bash
+   cd AndinaTickets/deployment/docker && docker compose -f docker-compose.produccion.yml up -d --build
+   cd AndinaTickets-Liquidaciones && docker compose -f docker-compose.produccion.yml up -d --build
+   cd AndinaTickets-Cartelera && docker compose -f docker-compose.produccion.yml up -d
+   ```
+   La primera vez, pretix tarda unos minutos en crear las tablas.
+5. Sumar los dominios en el `Caddyfile` de la puerta y recargarla (ver `docs/SERVIDOR.md` de Bingos).
+6. Crear el primer administrador:
+   ```bash
+   docker compose -f docker-compose.produccion.yml exec web python3 -m pretix createsuperuser
+   ```
+   Después, en el panel, repasar los pendientes de producción: "License check", el pie, Mercado Pago
+   y el plazo de pago.
+
+### Entrar a Liquidaciones
+
+Desde la PC (PowerShell):
+
+```powershell
+ssh -L 4340:localhost:4340 usuario@servidor
+```
+
+Mientras esa ventana esté abierta, Liquidaciones está en http://localhost:4340.
+
+### IP real, https y cookies
+
+- La puerta saca el https y le pasa a pretix la IP del visitante en `X-Forwarded-For` y el "https"
+  en `X-Forwarded-Proto`. Lo que mande el visitante en esos encabezados la puerta lo tira.
+- El nginx de la imagen (`deployment/docker/nginx.conf`) confía solo en las direcciones internas de
+  Docker. Toma la IP real contando desde el final del encabezado y le pasa a pretix solo esa. Si
+  algún día se suma Cloudflare, hay que agregar sus rangos con `set_real_ip_from`.
+- Con `trust_x_forwarded_proto`, pretix sabe que la visita es https: sus cookies salen con `Secure`
+  y el prefijo `__Host-`, y nginx manda HSTS.
+
+### Copias
+
+- Cada día, el contenedor `copias` deja en `deployment/docker/copias/` la base (`base-*.sql.gz`) y
+  los archivos de pretix (`archivos-*.tar.gz`). Se guardan las últimas 14.
+- Liquidaciones deja la suya en `AndinaTickets-Liquidaciones/copias/`.
+- Esas copias están en el mismo servidor, y DigitalOcean además guarda una copia semanal del
+  servidor entero. Igual conviene bajarlas a la PC de vez en cuando.
+
+### Probarlo en la PC
+
+Se puede levantar igual en la PC: los proyectos se llaman `*-produccion` y no tocan los de
+desarrollo. Hay que crear antes las redes `puerta` y `andina`, y pasar otro `.env` con
+`ARCHIVO_ENV`. En Liquidaciones, además, `PUERTO=4342`, porque el 4340 es el de desarrollo. Se
+probó el 11/11/2026, con una puerta de prueba en `andina.localhost` y `cartelera.andina.localhost`
+y certificado propio de Caddy. Resultado: http pasa a https, no hay redirecciones en círculo, las
+cookies salen `Secure`, `HttpOnly` y `__Host-`, hay HSTS, la IP real llega a pretix y una IP o un
+"https" inventados no pasan. Al terminar, `docker compose -f … down -v` borra solo lo de prueba.
