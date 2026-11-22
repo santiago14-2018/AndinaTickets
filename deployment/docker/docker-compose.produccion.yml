@@ -1,4 +1,4 @@
-# AndinaTickets en PRODUCCIÓN (servidor "samisoft-general" de DigitalOcean). Ver INSTALAR.md, "Producción".
+# AndinaTickets en PRODUCCIÓN (servidor "vainilla-general" de DigitalOcean, Grupo Vainilla). Ver INSTALAR.md, "Producción".
 #
 #   docker network create puerta                    (una sola vez por servidor; la crea la puerta)
 #   docker network create andina                    (una sola vez: la comparten pretix y Liquidaciones)
@@ -6,8 +6,9 @@
 #   docker compose -f docker-compose.produccion.yml up -d --build
 #
 # Va detrás de "la puerta" (un Caddy que atiende los puertos 80 y 443 y el https de todos los sistemas del
-# servidor, en el repositorio de SamiSoft Bingos, servidor/puerta). Este proyecto NO abre puertos: la puerta le
-# pasa las visitas de entradas.andinatickets.com.ar al contenedor "web" por la red "puerta", con el nombre "andina".
+# servidor, compartida con las tiendas online; ver INSTALAR.md, "Producción"). Este proyecto NO abre puertos: la
+# puerta le pasa las visitas de entradas.andinatickets.com.ar al contenedor "web" por la red "puerta", con el nombre
+# "andina".
 #
 # Tiene otro nombre de proyecto que el de desarrollo (andina-tickets) a propósito: si se corre en la PC, arma su
 # propia base y no toca la de desarrollo.
@@ -124,7 +125,7 @@ volumes:
   redis:
 
 networks:
-  # La red de la puerta (repositorio de SamiSoft Bingos, servidor/puerta): la comparten todos los sistemas.
+  # La red de la puerta (ver INSTALAR.md, "Producción"): la comparten todos los sistemas del servidor.
   puerta:
     external: true
     name: puerta

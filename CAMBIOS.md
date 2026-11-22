@@ -22,6 +22,15 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 
 ---
 
+## 2026-11-22
+
+- **[PROPIO]** Grupo Vainilla: AndinaTickets pasa al Grupo Vainilla (con las tiendas online y el bot del
+  consultorio). En producción ya no va a `samisoft-general` con Bingos, sino a **`vainilla-general`**
+  (4 GB, Proyecto "Grupo Vainilla" de DigitalOcean), junto a las tiendas online, detrás de la puerta de ese servidor
+  (vive en el repositorio de las tiendas); los bloques de Andina para su `Caddyfile` están en `INSTALAR.md` (punto 12).
+  Cuando todo ande, Andina pasa a un servidor suyo (`vainilla-tickets`). Cambiados `INSTALAR.md` y los
+  comentarios del compose de producción. Lo mismo en la cartelera y en Liquidaciones.
+
 ## 2026-11-11
 
 - **[PROPIO]** Producción detrás de "la puerta" (el Caddy del servidor `samisoft-general` de DigitalOcean, que

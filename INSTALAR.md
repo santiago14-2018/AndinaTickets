@@ -186,12 +186,33 @@ docker compose -f deployment/docker/docker-compose.dev.yml stop
 
 Los datos quedan guardados ahí, por las dudas.
 
-## 12. Producción (servidor `samisoft-general`)
+## 12. Producción (servidor `vainilla-general`)
 
-Decidido el 10/11/2026: DigitalOcean, en Amsterdam. AndinaTickets corre en el servidor
-`samisoft-general` (Ubuntu 24.04, 4 GB), junto con SamiSoft Bingos. La puesta en marcha del
-servidor y "la puerta" (el Caddy que atiende los puertos 80 y 443 y el https de todos los
-sistemas) están en el repositorio de SamiSoft Bingos: `docs/SERVIDOR.md` y `servidor/puerta/`.
+Decidido el 10/11/2026: DigitalOcean, en Amsterdam. **Cambio del 22/11/2026:** AndinaTickets es del
+**Grupo Vainilla** (con las tiendas online y el bot del consultorio), no del Grupo Sami (los Bingos).
+Ya no va a `samisoft-general`, junto a Bingos: corre en **`vainilla-general`** (Ubuntu 24.04, 4 GB),
+el servidor del grupo que comparte con las tiendas online, en el Proyecto "Grupo Vainilla" de
+DigitalOcean (la misma cuenta). **Más adelante**, cuando todo ande bien, Andina se muda a un servidor
+suyo, `vainilla-tickets`: es levantar lo mismo allá y llevar estos bloques a su propia puerta.
+
+Cómo se crea el servidor (llave SSH, Backups, IP reservada, firewall, Docker) está en
+`docs/SERVIDOR.md` del repositorio de SamiSoft Bingos: se sigue igual. **La puerta** (el Caddy que
+atiende los puertos 80 y 443 y el https) es la de `vainilla-general`, que vive en el repositorio de
+las tiendas online (`servidor/puerta/`). Lo de Andina en su `Caddyfile`:
+
+```
+entradas.andinatickets.com.ar {
+	reverse_proxy andina:80
+}
+andinatickets.com.ar {
+	reverse_proxy andina-cartelera:80
+}
+www.andinatickets.com.ar {
+	redir https://andinatickets.com.ar{uri} permanent
+}
+```
+
+La puerta crea la red `puerta` (`docker network create puerta`) y se levanta antes que los sistemas.
 
 ### Qué va en cada lugar
 
@@ -228,7 +249,8 @@ el túnel.
    cd AndinaTickets-Cartelera && docker compose -f docker-compose.produccion.yml up -d
    ```
    La primera vez, pretix tarda unos minutos en crear las tablas.
-5. Sumar los dominios en el `Caddyfile` de la puerta y recargarla (ver `docs/SERVIDOR.md` de Bingos).
+5. Con el `Caddyfile` de arriba, recargar la puerta:
+   `docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile`.
 6. Crear el primer administrador:
    ```bash
    docker compose -f docker-compose.produccion.yml exec web python3 -m pretix createsuperuser
