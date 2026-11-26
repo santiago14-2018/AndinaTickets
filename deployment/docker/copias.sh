@@ -16,7 +16,9 @@ done
 
 while true; do
 	fecha=$(date +%Y-%m-%d_%H%M)
-	if pg_dump -h db -U "${POSTGRES_USER}" "${POSTGRES_DB}" | gzip > "/copias/base-${fecha}.sql.gz.tmp"; then
+	# pg_dump comprime solo (-Z 6): con "pg_dump | gzip" el resultado que cuenta es el de gzip, y una copia fallada
+	# quedaba guardada como buena.
+	if pg_dump -h db -U "${POSTGRES_USER}" -Z 6 -f "/copias/base-${fecha}.sql.gz.tmp" "${POSTGRES_DB}"; then
 		mv "/copias/base-${fecha}.sql.gz.tmp" "/copias/base-${fecha}.sql.gz"
 		echo "copias: base-${fecha}.sql.gz"
 	else

@@ -22,6 +22,12 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 
 ---
 
+## 2026-11-26
+
+- **[PROPIO]** Copias (`deployment/docker/copias.sh`): `pg_dump` comprime solo (`-Z 6 -f`). Con `pg_dump | gzip`,
+  el resultado que contaba era el de `gzip`, y una copia fallada de la base quedaba guardada como buena (se vio en la
+  prueba de producción de las tiendas online). Lo mismo en Bingos.
+
 ## 2026-11-22
 
 - **[PROPIO]** Grupo Vainilla: AndinaTickets pasa al Grupo Vainilla (con las tiendas online y el bot del
