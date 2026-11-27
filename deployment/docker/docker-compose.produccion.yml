@@ -1,7 +1,6 @@
 # AndinaTickets en PRODUCCIÓN (servidor "vainilla-general" de DigitalOcean, Grupo Vainilla). Ver INSTALAR.md, "Producción".
 #
 #   docker network create puerta                    (una sola vez por servidor; la crea la puerta)
-#   docker network create andina                    (una sola vez: la comparten pretix y Liquidaciones)
 #   cp produccion.env.ejemplo .env.produccion       (y completarlo; Git lo ignora)
 #   docker compose -f docker-compose.produccion.yml up -d --build
 #
@@ -87,8 +86,6 @@ services:
       puerta:
         aliases:
           - andina
-      # La red que comparte con Liquidaciones (el recuadro "Liquidación" de "Mis ventas" le pregunta ahí).
-      andina:
 
   # Las tareas periódicas de pretix (runperiodic) cada 5 minutos: vencer los pedidos sin pagar (y liberar sus
   # butacas), mandar los correos programados, limpiar archivos viejos, etc. Sin esto, un pedido abandonado en
@@ -129,7 +126,3 @@ networks:
   puerta:
     external: true
     name: puerta
-  # Red interna de AndinaTickets con Liquidaciones (programa privado aparte).
-  andina:
-    external: true
-    name: andina

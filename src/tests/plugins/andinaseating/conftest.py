@@ -29,10 +29,10 @@ def env(db):
     with scopes_disabled():
         # andinaseating es HYBRID: tiene que estar activo en el organizador y en el evento.
         o = Organizer.objects.create(name='Teatro', slug='teatro',
-                                     plugins='pretix.plugins.andinaseating,pretix.plugins.andinaproductores')
+                                     plugins='pretix.plugins.andinaseating')
         event = Event.objects.create(
             organizer=o, name='Hamlet', slug='hamlet', currency='ARS', date_from=now() + timedelta(days=10),
-            plugins='pretix.plugins.andinaseating,pretix.plugins.andinaproductores', live=True,
+            plugins='pretix.plugins.andinaseating', live=True,
         )
         platea = event.items.create(name='Platea', default_price=PRICE, admission=True)
         pullman = event.items.create(name='Pullman', default_price=Decimal('18000.00'), admission=True)

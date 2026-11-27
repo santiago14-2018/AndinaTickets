@@ -93,26 +93,47 @@ def test_cortesia_sin_cargo_y_venta_una_sola_vez(env):
 
 
 @pytest.mark.django_db
-def test_porcentaje_editable_en_productores(env, client):
+def test_porcentaje_editable_en_cargo_por_servicio(env, client):
     event, _item, user = env
     with scopes_disabled():
         team = user.teams.first()
         team.all_organizer_permissions = True
         team.save()
     client.login(email='boleteria@example.com', password='boleteria')
-    url = '/control/organizer/teatro/productores/'
+    url = '/control/organizer/teatro/cargo-por-servicio/'
+    html = client.get('/control/organizer/teatro/').content.decode()
+    assert url in html and 'Cargo por servicio' in html  # en el menú del organizador
     r = client.get(url)
     assert r.status_code == 200 and 'name="cargo_{}" class="form-control"'.format(event.pk) in r.content.decode()
 
     # Festival grande: cargo más bajo (se acepta coma)
-    client.post(url, {'team_{}'.format(event.pk): '', 'commission_{}'.format(event.pk): '0',
-                      'cargo_{}'.format(event.pk): '7,5'})
+    client.post(url, {'cargo_{}'.format(event.pk): '7,5'})
     event.settings.flush()
     assert calcular(event, PRICE) == Decimal('2250.00')
 
     # Valor inválido: no se guarda
-    r = client.post(url, {'team_{}'.format(event.pk): '', 'commission_{}'.format(event.pk): '0',
-                          'cargo_{}'.format(event.pk): '150'}, follow=True)
+    r = client.post(url, {'cargo_{}'.format(event.pk): '150'}, follow=True)
     assert 'entre 0 y 100' in r.content.decode()
     event.settings.flush()
     assert calcular(event, PRICE) == Decimal('2250.00')
+
+
+@pytest.mark.django_db
+def test_cargo_por_servicio_solo_para_administradores(env, client):
+    client.login(email='boleteria@example.com', password='boleteria')
+    assert client.get('/control/organizer/teatro/cargo-por-servicio/').status_code == 403
+    assert client.post('/control/organizer/teatro/cargo-por-servicio/', {}).status_code == 403
+
+
+@pytest.mark.django_db
+def test_ya_no_esta_mis_ventas(env, client):
+    """El portal del productor se fue al programa de liquidaciones (aparte)."""
+    event, _item, user = env
+    with scopes_disabled():
+        team = user.teams.first()
+        team.all_organizer_permissions = True
+        team.save()
+    client.login(email='boleteria@example.com', password='boleteria')
+    assert client.get('/control/organizer/teatro/mis-ventas/').status_code == 404
+    assert client.get('/control/organizer/teatro/productores/').status_code == 404
+    assert 'Mis ventas' not in client.get('/control/organizer/teatro/').content.decode()

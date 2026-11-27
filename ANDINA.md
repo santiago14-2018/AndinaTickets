@@ -1,7 +1,7 @@
 # AndinaTickets
 
 AndinaTickets es un fork de [pretix](https://pretix.eu/) adaptado para Argentina:
-butacas numeradas, salas por sectores, boletería, Mercado Pago y portal de productores.
+butacas numeradas, salas por sectores, boletería, cortesías, cargo por servicio y Mercado Pago.
 
 Este archivo es la guía del fork: qué cambiamos de pretix, dónde vive lo nuestro y
 cómo traer actualizaciones de pretix sin perder nuestro trabajo. La lista de cambios, con
@@ -15,7 +15,8 @@ con Windows (y pasarle los datos), ver [INSTALAR.md](INSTALAR.md).
 | Entorno de desarrollo (Docker) | `deployment/docker/Dockerfile.dev`, `dev-entrypoint.sh`, `docker-compose.dev.yml` |
 | Salas, plan de butacas, selector, boletería | `src/pretix/plugins/andinaseating/` (plugin propio) |
 | Cobro con Mercado Pago (Checkout Pro) | `src/pretix/plugins/andinamercadopago/` (plugin propio) |
-| Portal de solo lectura para productores | `src/pretix/plugins/andinaproductores/` (plugin propio) |
+| Cargo por servicio (cálculo y pantalla Organizador → Cargo por servicio) | `src/pretix/plugins/andinaseating/cargo.py` y `cargo_views.py` |
+| Portal del productor y liquidaciones | Fuera de este repositorio: AndinaTickets-Liquidaciones (privado, ver "Productores") |
 | Librería de planos seatmap-canvas (MIT, compilada) | `src/pretix/plugins/andinaseating/static/pretixplugins/andinaseating/vendor/seatmap-canvas/` |
 | Marca (íconos, logos, plantillas de correo, textos con el nombre) | `src/pretix/andina_marca/` (ver su `LEEME.md`) |
 
@@ -37,7 +38,7 @@ escanean igual que una entrada online (pretixSCAN o check-in web).
 
 Cada carga o generación es de **venta** (al precio del producto) o de **cortesía** (regalo, a
 $0). Una cortesía es simplemente una entrada de precio 0, sin campos extra: así la reconocen la
-Boletería y el portal del productor.
+Boletería y el programa de liquidaciones.
 
 Los boletos de papel de **venta se activan al venderlos**: cada uno es un pedido pendiente
 (no entra en la puerta) hasta que el boletero lo vende en "Vender boletos de papel"
@@ -64,9 +65,9 @@ controla cupos: para eventos sin numerar se controlan antes (`check_quota`).
 suman las señales `fee_calculation_for_cart` (carrito) y `order_fee_calculation` (pedido); en la
 boletería se suma al vender cada boleto (`sell_tickets`), así no conviene comprar en el
 mostrador. Las cortesías no pagan (precio 0). El porcentaje de cada evento se cambia en
-Organizador → **Productores** (opción de evento `andina_cargo_servicio`). La caja de la
-boletería separa entradas (del productor) y cargo (de AndinaTickets). El portal del productor
-no lo cuenta: suma el precio de las entradas.
+Organizador → **Cargo por servicio** (opción de evento `andina_cargo_servicio`). La caja de la
+boletería separa entradas (del productor) y cargo (de AndinaTickets). La liquidación del
+productor no lo cuenta: suma el precio de las entradas.
 
 ### Plugin andinamercadopago
 
@@ -103,8 +104,8 @@ docker exec -e PRETIX_DATABASE_BACKEND=sqlite3 -e PRETIX_DATABASE_NAME= andina-t
 
 - `tests/plugins/andinamercadopago`: cobro, avisos y devoluciones de Mercado Pago.
 - `tests/plugins/andinaseating`: boletería (venta y cortesía), boletos generados para la
-  imprenta y su paquete, cortesías por email, canje de vales con plano, plano del comprador e
-  informe del productor. `andinaseating` es HYBRID: en las pruebas hay que activarlo en el
+  imprenta y su paquete, cortesías por email, canje de vales con plano, plano del comprador, la
+  pantalla del cargo por servicio y lo que lee Liquidaciones (canales y precio 0). `andinaseating` es HYBRID: en las pruebas hay que activarlo en el
   organizador y en el evento (ver `conftest.py`).
 
 - `--ds=tests.settings` es obligatorio: el contenedor define `DJANGO_SETTINGS_MODULE=pretix.settings`
@@ -112,28 +113,26 @@ docker exec -e PRETIX_DATABASE_BACKEND=sqlite3 -e PRETIX_DATABASE_NAME= andina-t
 - Las variables de base de datos hacen que use SQLite en memoria y no toque la base de desarrollo.
 - La API de Mercado Pago se simula con `responses`: no hace falta conexión ni credenciales.
 
-### Plugin andinaproductores
+### Productores (fuera de AndinaTickets)
 
-- Permiso propio "Portal del productor → Ver sus ventas" (a nivel organizador).
-- El equipo del productor se crea en Equipos con SOLO ese permiso y sin eventos: así pretix no le
-  da acceso a ninguna pantalla operativa (verificado: eventos, pedidos, productos, salas,
-  boletería, configuración y exportaciones quedan bloqueados).
-- Organizador → Productores (solo administradores): a cada evento se le asigna el equipo del
-  productor y la comisión del servicio (%).
-- Organizador → Mis ventas: entradas vendidas online, recaudación, comisión y neto, por tipo de
-  entrada, por función y por día, con descarga en PDF. Sin datos de compradores. La boletería se
-  informa aparte (ese dinero lo cobra el teatro).
-- **Liquidación** (recuadro en Mis ventas → evento, `liquidaciones.py`): la pide al programa
-  privado **AndinaTickets-Liquidaciones** (caja 3, repositorio aparte, puerto 4340) con la clave
-  compartida (`ANDINA_LIQUIDACIONES_URL` y `ANDINA_LIQUIDACIONES_CLAVE` en
-  `docker-compose.dev.yml` / `.env`). Muestra la liquidación cerrada, lo transferido, el saldo y
-  el comprobante en PDF (que se baja a través de AndinaTickets). Acá no se calcula nada. Sin
-  configurar o si el programa no responde, el recuadro no aparece o avisa, y el portal sigue
-  andando. Usa `urllib` y no `requests`: pretix bloquea con `requests` las conexiones a
-  direcciones privadas (protección para direcciones que cargan usuarios), y esta dirección sale
-  de la configuración del servidor.
+Desde el 27/11/2026 los productores **no tienen cuenta en AndinaTickets**. Su portal (ventas,
+ocupación, liquidación, PDF y Excel), sus usuarios, a qué productor pertenece cada evento y la
+comisión del servicio viven en el programa privado **AndinaTickets-Liquidaciones** (caja 3,
+repositorio aparte), que lee las ventas por la API con un token de solo lectura. Su portal está
+en `productores.andinatickets.com.ar`.
+
+Hasta esa fecha existía el plugin `andinaproductores` ("Mis ventas", equipos de productores con
+un permiso propio y el recuadro de la liquidación pedido a Liquidaciones). Se borró: está en la
+historia de Git (último commit con él: `e79ccd20f`). AndinaTickets ya no le habla a Liquidaciones;
+es solo al revés, por la API.
+
+Lo que lee Liquidaciones y no hay que cambiar sin avisar allá: la boletería va en el canal
+`api.boleteria`, las cortesías por email en `api.cortesias`, y una cortesía es una entrada de
+precio 0 (ver las pruebas `test_liquidaciones_*`). Los costos de Mercado Pago van en
+`payments[].details.costos`.
+
 - Importante: no usar el parámetro de URL `event` en vistas de organizador: el middleware de
-  permisos del panel lo trata como pantalla de evento (por eso se llama `evento`).
+  permisos del panel lo trata como pantalla de evento (por eso, en las nuestras, se llama `evento`).
 
 ### Actualizar seatmap-canvas
 
@@ -154,7 +153,7 @@ Revisar esta lista en cada actualización desde pretix.
 
 | Archivo | Cambio | Por qué |
 |---|---|---|
-| `src/pretix/_base_settings.py` | `'pretix.plugins.andinaseating'`, `'pretix.plugins.andinamercadopago'` y `'pretix.plugins.andinaproductores'` en `INSTALLED_APPS` | Cargar nuestros plugins |
+| `src/pretix/_base_settings.py` | `'pretix.plugins.andinaseating'` y `'pretix.plugins.andinamercadopago'` en `INSTALLED_APPS` | Cargar nuestros plugins |
 | `src/pretix/presale/views/event.py` | `itemnum` se cuenta antes de quitar los productos con butaca | Que un producto sin butaca no aparezca precargado con cantidad 1 junto al plano |
 | `src/pretix/presale/templates/pretixpresale/event/index.html` | Se pasa `add_to_cart_below` a la señal `render_seating_plan` | Mostrar un solo botón "Agregar al carrito" |
 | `src/pretix/_base_settings.py` | `ANDINA_MARCA_DIR` primero en `LOCALE_PATHS`, `TEMPLATES['DIRS']` y `STATICFILES_DIRS`; `PRETIX_PRIMARY_COLOR` = `#5b2a73` | La marca propia se superpone a la de pretix sin tocar sus archivos |
@@ -162,7 +161,7 @@ Revisar esta lista en cada actualización desde pretix.
 | `src/pretix/static/pretixbase/scss/_theme_variables.scss`, `_bootstrap_vars.scss`, `colors.scss`, `static/rest_framework/scss/_variables.scss` | Violetas de la marca (`#5b2a73`, barra `#3e1b4f`) | Colores del panel, el login y la tienda |
 | `theme-color` en `pretixcontrol/base.html`, `pretixcontrol/auth/base.html`, `pretixpresale/base.html`, `base/views/webmanifest.py` y `statistics.js` | `#3b1c4a` → `#3e1b4f` | Color de la barra del navegador en el celular y de los gráficos |
 | `src/pretix/base/templates/pretixbase/email/base.html` y `simple_logo.html` | Franja violeta arriba en lugar del semicírculo, fondo lila, letra de la marca | Estética propia de los correos |
-| `src/pretix/_base_settings.py` | `'pretix.andina_marca'` en `INSTALLED_APPS`; `ANDINA_CARTELERA_URL`; `ANDINA_LIQUIDACIONES_URL` y `ANDINA_LIQUIDACIONES_CLAVE` | Registrar la letra de la marca; link de la barra de la tienda; liquidaciones en el portal del productor |
+| `src/pretix/_base_settings.py` | `'pretix.andina_marca'` en `INSTALLED_APPS`; `ANDINA_CARTELERA_URL` | Registrar la letra de la marca; link de la barra de la tienda |
 | `src/pretix/static/pretixbase/scss/webfont.scss`, `pretixcontrol/scss/auth.scss`, `pretixbase/scss/error.scss` | `@font-face` de Bricolage Grotesque; el login y las páginas de error cargan la letra | Letra de la marca en todas las pantallas |
 | `src/pretix/base/settings.py` | Letra por defecto de tiendas (`primary_font`) y facturas (`invoice_renderer_font`): Bricolage Grotesque | Letra de la marca |
 | `src/pretix/presale/templates/pretixpresale/base.html` | Incluye `andina_marca/barra_tienda.html` | La tienda muestra siempre AndinaTickets arriba |

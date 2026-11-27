@@ -210,6 +210,9 @@ andinatickets.com.ar {
 www.andinatickets.com.ar {
 	redir https://andinatickets.com.ar{uri} permanent
 }
+productores.andinatickets.com.ar {
+	reverse_proxy andina-productores:8000
+}
 ```
 
 La puerta crea la red `puerta` (`docker network create puerta`) y se levanta antes que los sistemas.
@@ -220,19 +223,17 @@ La puerta crea la red `puerta` (`docker network create puerta`) y se levanta ant
 |---|---|---|---|
 | `entradas.andinatickets.com.ar` | AndinaTickets (pretix): tienda, panel, API, AndinaScan | este | `andina` |
 | `andinatickets.com.ar` (y `www`, que redirige) | La cartelera | AndinaTickets-Cartelera (privado) | `andina-cartelera` |
-| — (túnel SSH) | Liquidaciones | AndinaTickets-Liquidaciones (privado) | — (red interna `andina`) |
+| `productores.andinatickets.com.ar` | Portal del productor (Liquidaciones) | AndinaTickets-Liquidaciones (privado) | `andina-productores` |
+| — (túnel SSH) | Administración de Liquidaciones | AndinaTickets-Liquidaciones (privado) | — |
 
 Ninguno abre puertos al exterior. Liquidaciones abre el 4340 solo en `127.0.0.1` del servidor, para
 el túnel.
 
 ### La primera vez
 
-1. En el servidor, con la puerta ya andando (`docker network create puerta` lo hizo la puerta):
-   ```bash
-   docker network create andina
-   ```
-2. Bajar los tres repositorios (los privados, con una llave de GitHub del servidor).
-3. Armar cada `.env.produccion` **en la PC**, desde su ejemplo, y copiarlo al servidor con `scp`. En
+1. En el servidor, con la puerta ya andando (`docker network create puerta` lo hizo la puerta), bajar
+   los tres repositorios (los privados, con una llave de GitHub del servidor).
+2. Armar cada `.env.produccion` **en la PC**, desde su ejemplo, y copiarlo al servidor con `scp`. En
    la PC, "Respaldar todo" los guarda en el candado. Los ejemplos son:
    - `deployment/docker/produccion.env.ejemplo` en este repositorio;
    - `.env.example` en la cartelera, con `PRETIX_API_URL=https://entradas.andinatickets.com.ar/api/v1`,
@@ -241,17 +242,17 @@ el túnel.
      y `PRETIX_PANEL_URL=https://entradas.andinatickets.com.ar`.
 
    Los tokens de la cartelera y de Liquidaciones se crean de nuevo en el panel de producción (equipos de
-   solo lectura). La clave de Liquidaciones es la misma en `ANDINA_LIQUIDACIONES_CLAVE` y `CLAVE_PORTAL`.
-4. Levantar los tres:
+   solo lectura).
+3. Levantar los tres:
    ```bash
    cd AndinaTickets/deployment/docker && docker compose -f docker-compose.produccion.yml up -d --build
    cd AndinaTickets-Liquidaciones && docker compose -f docker-compose.produccion.yml up -d --build
    cd AndinaTickets-Cartelera && docker compose -f docker-compose.produccion.yml up -d
    ```
    La primera vez, pretix tarda unos minutos en crear las tablas.
-5. Con el `Caddyfile` de arriba, recargar la puerta:
+4. Con el `Caddyfile` de arriba, recargar la puerta:
    `docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile`.
-6. Crear el primer administrador:
+5. Crear el primer administrador:
    ```bash
    docker compose -f docker-compose.produccion.yml exec web python3 -m pretix createsuperuser
    ```
@@ -289,7 +290,7 @@ Mientras esa ventana esté abierta, Liquidaciones está en http://localhost:4340
 ### Probarlo en la PC
 
 Se puede levantar igual en la PC: los proyectos se llaman `*-produccion` y no tocan los de
-desarrollo. Hay que crear antes las redes `puerta` y `andina`, y pasar otro `.env` con
+desarrollo. Hay que crear antes la red `puerta`, y pasar otro `.env` con
 `ARCHIVO_ENV`. En Liquidaciones, además, `PUERTO=4342`, porque el 4340 es el de desarrollo. Se
 probó el 11/11/2026, con una puerta de prueba en `andina.localhost` y `cartelera.andina.localhost`
 y certificado propio de Caddy. Resultado: http pasa a https, no hay redirecciones en círculo, las

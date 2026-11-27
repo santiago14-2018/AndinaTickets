@@ -5,6 +5,7 @@
 from django.urls import re_path
 
 from .boleteria_views import BoleteriaPackageView, BoleteriaView
+from .cargo_views import CargoView
 from .cortesias_views import CortesiasView
 from .event_views import EventSeatingView
 from .views import (
@@ -20,6 +21,7 @@ urlpatterns = [
             BoleteriaPackageView.as_view(), name='boleteria.paquete'),
     re_path(r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/cortesias/$', CortesiasView.as_view(),
             name='cortesias'),
+    re_path(r'^control/organizer/(?P<organizer>[^/]+)/cargo-por-servicio/$', CargoView.as_view(), name='cargo'),
     re_path(r'^control/organizer/(?P<organizer>[^/]+)/salas/$', SalaListView.as_view(), name='salas'),
     re_path(r'^control/organizer/(?P<organizer>[^/]+)/salas/(?P<sala>\d+)/$', SalaDetailView.as_view(), name='sala'),
     re_path(r'^control/organizer/(?P<organizer>[^/]+)/salas/(?P<sala>\d+)/vista-previa/$',

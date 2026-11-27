@@ -47,15 +47,27 @@ def andinaseating_seatingframe_html_head(sender, request=None, **kwargs):
 
 @receiver(nav_organizer, dispatch_uid="andinaseating_nav_organizer")
 def andinaseating_nav_organizer(sender, request=None, **kwargs):
-    if not request.user.has_organizer_permission(request.organizer, 'organizer.seatingplans:write', request=request):
-        return []
+    from .cargo_views import puede_editar
+
     url = resolve(request.path_info)
-    return [{
-        'label': 'Salas',
-        'url': reverse('plugins:andinaseating:salas', kwargs={'organizer': request.organizer.slug}),
-        'active': url.namespace == 'plugins:andinaseating',
-        'icon': 'th',
-    }]
+    propio = url.namespace == 'plugins:andinaseating'
+    kw = {'organizer': request.organizer.slug}
+    items = []
+    if request.user.has_organizer_permission(request.organizer, 'organizer.seatingplans:write', request=request):
+        items.append({
+            'label': 'Salas',
+            'url': reverse('plugins:andinaseating:salas', kwargs=kw),
+            'active': propio and url.url_name.startswith('sala'),
+            'icon': 'th',
+        })
+    if puede_editar(request):
+        items.append({
+            'label': 'Cargo por servicio',
+            'url': reverse('plugins:andinaseating:cargo', kwargs=kw),
+            'active': propio and url.url_name == 'cargo',
+            'icon': 'percent',
+        })
+    return items
 
 
 @receiver(nav_event, dispatch_uid="andinaseating_nav_event")

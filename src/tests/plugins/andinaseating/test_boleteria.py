@@ -4,7 +4,7 @@
 #
 """
 Pruebas de la boletería: boletos impresos para la venta y de cortesía (regalo, a $0),
-y cómo los muestra el informe del productor.
+y cómo quedan para el programa de liquidaciones (que lee los pedidos por la API).
 
 Correr (dentro del contenedor web; ver ANDINA.md, "Pruebas automáticas"):
     cd /pretix/src && python3 -m pytest --ds=tests.settings tests/plugins/andinaseating -p no:cacheprovider
@@ -18,7 +18,6 @@ from django.utils.timezone import now
 from django_scopes import scopes_disabled
 
 from pretix.base.models import Order, OrderPosition
-from pretix.plugins.andinaproductores.report import build_report
 from pretix.plugins.andinaseating.boleteria import (
     KIND_COURTESY, KIND_SALE, boleteria_positions, enable_for_event,
     import_tickets, parse_tickets_csv, resolve_tickets, sell_tickets,
@@ -111,7 +110,11 @@ def test_pantalla_exige_elegir_el_tipo(env, client):
 
 
 @pytest.mark.django_db
-def test_informe_del_productor_separa_cortesias(env):
+def test_liquidaciones_separa_boleteria_y_cortesias(env):
+    """
+    Lo que lee el programa de liquidaciones (aparte) por la API: solo los pedidos pagados; la
+    boletería, por el canal api.boleteria; las cortesías, por el precio 0.
+    """
     event, item, user = env
     with scopes_disabled():
         load(event, user, csv_bytes('0001;A;1', '0002;A;2', '0003;A;3'), KIND_SALE)
@@ -124,16 +127,14 @@ def test_informe_del_productor_separa_cortesias(env):
                                          datetime=now(), expires=now(), total=price, sales_channel=web)
             OrderPosition.objects.create(order=order, item=item, price=price)
 
-        event.settings.andina_comision = '10'
-        report = build_report(event)
-
-    assert report['tickets'] == 1
-    assert report['gross'] == PRICE
-    assert report['commission'] == Decimal('3000.00')
-    assert report['box_count'] == 2
-    assert report['box_value'] == 2 * PRICE
-    assert report['courtesy_online'] == 1
-    assert report['courtesy_box'] == 1
+        pagadas = OrderPosition.objects.filter(order__event=event, order__status=Order.STATUS_PAID)
+        boleteria = pagadas.filter(order__sales_channel__identifier='api.boleteria')
+        online = pagadas.exclude(order__sales_channel__identifier='api.boleteria')
+        assert sorted(p.secret for p in boleteria.exclude(price=0)) == ['0001', '0002']
+        assert all(p.price == PRICE for p in boleteria.exclude(price=0))
+        assert [p.secret for p in boleteria.filter(price=0)] == ['R001']
+        assert online.exclude(price=0).count() == 1
+        assert online.filter(price=0).count() == 1
 
 
 def test_csv_sin_columnas_obligatorias():

@@ -1,0 +1,40 @@
+{% extends "pretixcontrol/organizers/base.html" %}
+{% block title %}Cargo por servicio{% endblock %}
+{% block inner %}
+    <h1>Cargo por servicio</h1>
+    <p>
+        Lo paga el comprador sobre el precio de las entradas, online y en la boletería (así comprar online no sale
+        más caro que en el mostrador). Es un porcentaje por evento: {{ por_defecto }} % si no se cambia. Las
+        cortesías no pagan cargo.
+    </p>
+    <p class="text-muted">
+        El productor de cada evento, su comisión y su portal están en el programa de liquidaciones, no acá.
+    </p>
+    <form method="post">
+        {% csrf_token %}
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                <tr>
+                    <th>Evento</th>
+                    <th style="width: 14em">Cargo por servicio (%)</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for r in eventos %}
+                    <tr>
+                        <td><strong>{{ r.evento.name }}</strong><br><small class="text-muted">{{ r.evento.get_date_range_display }}</small></td>
+                        <td>
+                            <input type="text" inputmode="decimal" name="cargo_{{ r.evento.pk }}" class="form-control"
+                                   value="{{ r.cargo }}" aria-label="Cargo por servicio de {{ r.evento.name }}">
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="2" class="text-muted">Todavía no hay eventos.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if eventos %}<div class="text-right"><button type="submit" class="btn btn-primary btn-save">Guardar</button></div>{% endif %}
+    </form>
+{% endblock %}

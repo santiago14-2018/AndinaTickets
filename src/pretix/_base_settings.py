@@ -68,7 +68,6 @@ INSTALLED_APPS = [
     'pretix.plugins.webcheckin',
     'pretix.plugins.andinaseating',
     'pretix.plugins.andinamercadopago',
-    'pretix.plugins.andinaproductores',
     'pretix.andina_marca',
     'django_countries',
     'oauth2_provider',
@@ -143,10 +142,6 @@ LANGUAGES = ALL_LANGUAGES
 ANDINA_MARCA_DIR = os.path.join(os.path.dirname(__file__), 'andina_marca')
 # Dirección de la cartelera (sitio aparte): el logo de la barra de la tienda lleva ahí.
 ANDINA_CARTELERA_URL = os.environ.get('ANDINA_CARTELERA_URL', '')
-# Programa privado de liquidaciones (repositorio aparte): el portal del productor le pide la
-# liquidación de cada evento con la clave compartida. Sin dirección, el portal no la muestra.
-ANDINA_LIQUIDACIONES_URL = os.environ.get('ANDINA_LIQUIDACIONES_URL', '').rstrip('/')
-ANDINA_LIQUIDACIONES_CLAVE = os.environ.get('ANDINA_LIQUIDACIONES_CLAVE', '')
 
 LOCALE_PATHS = [
     os.path.join(ANDINA_MARCA_DIR, 'locale'),

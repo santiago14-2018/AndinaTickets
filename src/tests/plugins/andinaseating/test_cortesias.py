@@ -11,7 +11,6 @@ from django.core import mail as djmail
 from django_scopes import scopes_disabled
 
 from pretix.base.models import Order
-from pretix.plugins.andinaproductores.report import build_report
 from pretix.plugins.andinaseating.boleteria import (
     COURTESY_CHANNEL, enable_for_event, seats_by_guid,
 )
@@ -98,14 +97,15 @@ def test_sin_numerar_por_cantidad(env_general):
 
 
 @pytest.mark.django_db
-def test_el_informe_del_productor_las_cuenta_como_cortesias_digitales(env):
+def test_liquidaciones_las_ve_como_cortesias_digitales(env):
+    """El programa de liquidaciones (aparte) reconoce las cortesías por el canal api.cortesias y el precio 0."""
     event, item, user = env
     with scopes_disabled():
-        create_courtesy(event, None, user, 'Laura', '', seats=seats(event, 'platea-A-1', 'platea-A-2'))
-        report = build_report(event)
-    assert report['tickets'] == 0 and report['gross'] == 0
-    assert report['courtesy_online'] == 2
-    assert report['courtesy_box'] == 0
+        order = create_courtesy(event, None, user, 'Laura', '', seats=seats(event, 'platea-A-1', 'platea-A-2'))
+        order.refresh_from_db()
+        assert order.status == Order.STATUS_PAID and not order.testmode
+        assert order.sales_channel.identifier == COURTESY_CHANNEL
+        assert [p.price for p in order.positions.all()] == [0, 0]
 
 
 @pytest.mark.django_db

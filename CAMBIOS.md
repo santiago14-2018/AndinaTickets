@@ -22,6 +22,25 @@ Regla: cada cambio nuevo suma un renglón acá, en la misma entrega (commit) que
 
 ---
 
+## 2026-11-27
+
+- **[PROPIO]** Se borró el plugin `andinaproductores` ("Mis ventas" y Organizador → Productores). El portal del
+  productor, sus usuarios, a qué productor pertenece cada evento y la comisión pasaron al programa privado
+  AndinaTickets-Liquidaciones (caja 3, por API), con su propio dominio (`productores.andinatickets.com.ar`): los
+  productores ya no tienen cuenta en AndinaTickets. Lo único que quedaba de esa pantalla, el porcentaje del cargo
+  por servicio de cada evento, está ahora en Organizador → **Cargo por servicio** (`andinaseating/cargo_views.py`,
+  la misma opción `andina_cargo_servicio`; solo administradores). Fuera también `ANDINA_LIQUIDACIONES_URL`,
+  `ANDINA_LIQUIDACIONES_CLAVE` y la red `andina` de producción: AndinaTickets ya no le habla a Liquidaciones.
+  Pruebas: las de "Mis ventas" se fueron; las de boletería y cortesías ahora verifican lo que lee Liquidaciones
+  (canales `api.boleteria` y `api.cortesias`, precio 0), y hay pruebas de la pantalla nueva (101 en total).
+- **[PROPIO]** Documentación (en `privado/documentacion/`, no va a Git): Manual de usuario v11, por la salida de los
+  productores. Capítulo 13 nuevo, "Productores y su portal": la administración de Liquidaciones (productor nuevo,
+  sus eventos con la comisión, los usuarios del portal con la invitación) y lo que ve el productor en
+  `productores.andinatickets.com.ar`. En el 12, sin "Dar acceso a un productor"; el cargo por servicio en
+  Organizador → Cargo por servicio y la comisión en Liquidaciones. En el 4, "Un evento simple, de cero a la venta".
+  El organizador se llama AndinaTickets; datos de demostración y preguntas frecuentes al día; capturas nuevas.
+  La "Guía para imprentas y productores" no nombraba "Mis ventas": queda igual.
+
 ## 2026-11-26
 
 - **[PROPIO]** Copias (`deployment/docker/copias.sh`): `pg_dump` comprime solo (`-Z 6 -f`). Con `pg_dump | gzip`,
